@@ -37,3 +37,5 @@ The result is Builds/COMP2165_Clicker_itchio.zip.
 To play locally, extract the whole ZIP and double-click Play WebGL.bat inside it.
 Submit that ZIP; the local play launcher is included for the marker.
 Open Unity only to change the Canvas layout or add code features.
+
+EXPORT WORKBOOK!!!!!!

@@ -5,3 +5,16 @@ The 31 icon PNGs in `icons/` are 48 × 48 tiles extracted from the `cookie_click
 Interface sound effects by Kenney, from https://kenney.nl/assets/interface-sounds, licensed CC0: https://creativecommons.org/publicdomain/zero/1.0/. Unmodified WAV files.
 
 Looping background music: "Flowerbed Fields [Loop]" by Zane Little Music, from https://opengameart.org/content/flowerbed-fields-loop, licensed CC0: https://creativecommons.org/publicdomain/zero/1.0/. The original OGG is retained; flowerbed_fields.wav is a mono WAV conversion for browser playback.
+
+Looping background music: "JungleBook" from the game "Maplestory" by Nexon and Wizet, Composed by: 이준희 & LedZeper, from https://youtu.be/sAor5Hqd640. Used a youtube to WAV conversion tool for playback.
+
+Cookie replacement icon for clicking: "Silverfish" mob by Mojang from the game Minecraft, from "https://minecraft.wiki/index.php?curid=14004". Licensed  under a Creative Commons Attribution-NonCommercial 3.0 license.
+
+farmer icon: "Easy Pete" NPC from Fallout: New Vegas, owned by Bethesda Softworks and Obsidian Entertainment, from https://fallout.fandom.com/wiki/Easy_Pete. Subject of the images in question is believed to qualify as fair use under United States copyright law, as such display does not significantly impede the right of the copyright holder to sell the copyrighted material and is not being used to generate profit in this context.
+
+tank icon: https://www.flaticon.com/free-icon/tank_7165153?term=tank&page=1&position=16&origin=tag&related_id=7165153
+
+flamer icon: https://deadahead.wiki.gg/wiki/Flamethrower
+
+weeder icon: https://plantsvszombies.fandom.com/wiki/Sprout
+

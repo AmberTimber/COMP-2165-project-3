@@ -1,6 +1,6 @@
 "id","name","description","cost","target_type","target_id","operation","amount","unlock_at","image","tooltip","cost_currency","unlock_currency"
-"strong_click","Stronger hands","Double each manual click.","100","click","","multiply","2","50","upgrade_click","Double each manual click.","cookies","cookies"
-"better_ovens","Better ovens","Double Grandma output.","500","building","grandma","multiply","2","250","upgrade_oven","Double Grandma output.","cookies","cookies"
+"strong_click","Valuable service","Double the amount of money earned from killing pests.","100","click","","multiply","2","50","upgrade_click","Double each manual click.","cookies","cookies"
+"better_ovens","Insect claymore","Doubles the money gained by hired hands.","500","building","grandma","multiply","2","250","upgrade_oven","Double Grandma output.","cookies","cookies"
 "quick_fingers","Quick fingers","Double each manual click again.","1200","click","","multiply","2","500","upgrade_fingers","Double each manual click again.","cookies","cookies"
 "reinforced_cursors","Reinforced cursors","Double Cursor output.","1800","building","cursor","multiply","2","600","upgrade_cursor","Double Cursor output.","cookies","cookies"
 "grandma_teamwork","Grandma teamwork","Double Grandma output again.","4500","building","grandma","multiply","2","1500","upgrade_teamwork","Double Grandma output again.","cookies","cookies"
