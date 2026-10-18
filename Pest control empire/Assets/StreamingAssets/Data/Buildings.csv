@@ -1,0 +1,7 @@
+"id","name","description","base_cost","per_second","unlock_at","image","tooltip","cost_currency","yield_currency","unlock_currency"
+"cursor","Cursor","An extra hand to make cookies.","15","0.1","0","cursor","An extra hand to make cookies.","cookies","cookies","cookies"
+"grandma","Grandma","A kindly baker with a fast oven.","100","1","30","grandma","A kindly baker with a fast oven.","cookies","cookies","cookies"
+"sugar_mill","Sugar Mill","Grind ingredients into sugar.","250","0.5","100","farm","Produces Sugar that can buy specialist upgrades.","cookies","sugar","cookies"
+"farm","Farm","Grow ingredients at scale.","1100","8","300","farm","Grow ingredients at scale.","cookies","cookies","cookies"
+"factory","Factory","Industrial cookie production.","12000","47","3000","factory","Industrial cookie production.","cookies","cookies","cookies"
+"bank","Bank","Finance your growing business.","130000","260","25000","bank","Finance your growing business.","cookies","cookies","cookies"

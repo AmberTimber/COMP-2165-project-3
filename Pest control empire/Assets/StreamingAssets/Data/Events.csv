@@ -1,0 +1,5 @@
+"Event Title","Event Description","Event Option 1","Event Option 2","Correct Option","Image","Sound","Currency"
+"Factory fire","A fire breaks out in the cookie factory. What do you do?","Call emergency services","Ignore it and keep baking","0","event_fire","event","cookies"
+"Broken oven","The main oven stops working during a busy shift.","Schedule a repair","Turn up the heat anyway","0","event_oven","event","cookies"
+"Supplier issue","Your flour delivery is late. Customers are waiting.","Contact a backup supplier","Promise stock you do not have","0","event_supplier","event","cookies"
+"Quality alert","A batch of cookies may be contaminated.","Recall and inspect the batch","Ship it before anyone notices","0","event_quality","event","cookies"

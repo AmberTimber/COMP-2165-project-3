@@ -1,0 +1,39 @@
+RESKIN THE CLICKER WITHOUT OPENING UNITY
+
+1. Edit the CSV files in this folder to change game data. Visuals.csv and Audio.csv
+   hold paths to images and sounds; Currencies.csv defines balances and click
+   income. Buildings.csv, Upgrades.csv, Events.csv, Settings.csv, and Palette.csv
+   control the rest of the game.
+   The first row of Currencies.csv is the main currency. Building rows use
+   cost_currency and yield_currency IDs; upgrade rows use cost_currency.
+   unlock_currency can choose which lifetime total unlocks an item.
+   In Events.csv, Correct Option 1 or 2 fixes the successful button. Set it
+   to 0 to choose the successful button randomly for each new event card.
+   The two button labels stay in their original positions.
+2. Replace or add image and audio files in the Media subfolder. You can make
+   subfolders such as Media/images or Media/music. Paths in Visuals.csv and
+   Audio.csv are relative to Media, such as images/new-cookie.png.
+   Use WAV audio for browser music and sound effects.
+   The Visuals.csv sprite_sheet row can point to an atlas in Media/sheets.
+   A path on an individual image row overrides that atlas tile.
+3. Edit Palette.csv for panel and font colours. Hex values can include alpha:
+   #RRGGBBAA, where FF is fully opaque and 80 is about half opaque.
+   Buildings.csv and Upgrades.csv have a tooltip column for hover text. Leave
+   it blank to hide the tooltip for that item.
+4. Double-click Run Student Build.bat in this folder. The launcher copies
+   your CSVs and media, then builds the WebGL ZIP from a cached project
+   copy. Unity may stay open; save scene or code edits before building.
+   The first build can take a while; later builds reuse compiled files.
+   To copy changes without building, double-click
+   Refresh Student Content.bat in this folder.
+
+Prefer Excel? Edit Clicker Template.xlsx, save and close it, then double-click
+Export Workbook CSVs.bat in this folder. This overwrites the seven game
+data CSVs here with the workbook sheets. Palette.csv is never overwritten.
+Normal builds do not export the workbook, so direct CSV edits remain intact.
+
+Unity 6000.3.9f1 with WebGL Build Support must be installed to build.
+The result is Builds/COMP2165_Clicker_itchio.zip.
+To play locally, extract the whole ZIP and double-click Play WebGL.bat inside it.
+Submit that ZIP; the local play launcher is included for the marker.
+Open Unity only to change the Canvas layout or add code features.

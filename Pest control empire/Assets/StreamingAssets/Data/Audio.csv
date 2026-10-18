@@ -1,0 +1,8 @@
+key,path
+music,sounds/flowerbed_fields.wav
+click,sounds/click_001.wav
+buy,sounds/confirmation_001.wav
+gold,sounds/glass_001.wav
+event,sounds/question_001.wav
+success,sounds/confirmation_002.wav
+failure,sounds/error_001.wav
