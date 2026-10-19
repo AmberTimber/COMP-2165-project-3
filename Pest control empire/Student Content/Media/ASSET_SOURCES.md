@@ -30,3 +30,11 @@ ladybug icon: https://terraria.wiki.gg/wiki/Ladybug
 
 fumigator icon: https://www.airtasker.com/au/jobs/pest-control/sydney/
 
+chef icon: https://www.instagram.com/gordongram/
+
+hunter icon: https://en.wikipedia.org/wiki/John_Rambo
+
+mercenary icon: https://villains.fandom.com/wiki/HUNK
+
+squad formation upgrade icon: https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/
+
