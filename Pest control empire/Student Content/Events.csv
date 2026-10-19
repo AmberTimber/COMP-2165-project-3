@@ -1,5 +1,5 @@
 "Event Title","Event Description","Event Option 1","Event Option 2","Correct Option","Image","Sound","Currency"
 "Injured worker","A worker gets injured while removing pests. What do you do?","Call a docter to check up on him","Ignore it and make him keep working","1","event_fire","event","cookies"
-"Damaged equipment","Cracks and damage have been found in pesticide equipment.","Keep using the equipment","Fix the equipment","1","event_oven","event","cookies"
-"Wrongly removed","You accidentally kill a clients flowers instead of the weeds in their garden.","Let the client know","Plant new plants and pretend it never happened","0","event_supplier","event","cookies"
-"Quality alert","A previous client complains that the pest removal service didn't remove pests.","Check on clients job again.","Slip the complaint into the bin","0","event_quality","event","cookies"
+"Damaged equipment","Cracks and damage have been found in pesticide equipment.","Keep using the equipment","Fix the equipment","2","event_oven","event","cookies"
+"Wrongly removed","You accidentally kill a clients flowers instead of the weeds in their garden.","Let the client know","Plant new plants and pretend it never happened","1","event_supplier","event","cookies"
+"Quality alert","A previous client complains that the pest removal service didn't remove pests.","Check on clients job again.","Slip the complaint into the bin","1","event_quality","event","cookies"

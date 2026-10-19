@@ -10,7 +10,7 @@ public class PestHit : MonoBehaviour
     private int requiredHits;
     private Button clicker;
     private RawImage pestImg;
-    public Texture2D[] textures;
+    public Texture[] textures;
     private int textureCount;
     // slider stuff
     public Slider healthDisplay;

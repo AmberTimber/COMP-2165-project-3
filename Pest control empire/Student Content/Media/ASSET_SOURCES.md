@@ -22,4 +22,11 @@ stick bug icon: https://youtu.be/fC7oUOUEEi4
 
 rat icon: https://youtu.be/3X-iqFRGqbc
 
+scientist icon: https://www.theguardian.com/tv-and-radio/2018/jan/20/breaking-bad-10-years-on-tv-is-still-in-walter-whites-shadow
+
+radiator icon: https://en.wikipedia.org/wiki/Hazard_symbol
+
+ladybug icon: https://terraria.wiki.gg/wiki/Ladybug
+
+fumigator icon: https://www.airtasker.com/au/jobs/pest-control/sydney/
 
