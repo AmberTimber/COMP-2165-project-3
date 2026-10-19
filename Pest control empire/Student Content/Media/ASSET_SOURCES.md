@@ -18,3 +18,8 @@ flamer icon: https://deadahead.wiki.gg/wiki/Flamethrower
 
 weeder icon: https://plantsvszombies.fandom.com/wiki/Sprout
 
+stick bug icon: https://youtu.be/fC7oUOUEEi4
+
+rat icon: https://youtu.be/3X-iqFRGqbc
+
+

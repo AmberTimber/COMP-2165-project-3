@@ -10,6 +10,7 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using uClicker;
+using TMPro;
 
 namespace COMP2165.Clicker
 {
@@ -49,6 +50,9 @@ namespace COMP2165.Clicker
         string error, toast;
         float toastUntil, nextTick, nextEvent, nextGold, nextSave, goldEnd;
         float goldBonus = 7, bonusDuration = 20, eventInterval = 35, goldInterval = 50, wrongPenalty = 0.1f, sellRefund = 0.5f, shopReveal = 0.5f;
+        // custom
+        public float overallBonus = 1;
+        public TextMeshProUGUI OverallBonusTXT;
 
         void Start()
         {
@@ -57,6 +61,8 @@ namespace COMP2165.Clicker
             if (ui == null) { Debug.LogError("The Clicker scene needs its editable Canvas. Use COMP2165 > Create Editable Canvas."); return; }
             BindCanvas();
             StartCoroutine(LoadGame());
+            // custom
+            overallBonus = PlayerPrefs.GetFloat("overallBonus", overallBonus);
         }
 
         static void ConfigureInputModule()
@@ -293,8 +299,10 @@ namespace COMP2165.Clicker
                 var originals = new List<float>();
                 foreach (var row in buildings)
                 {
-                    var asset = buildingAssets[row.id]; originals.Add(asset.YieldAmount.Amount);
-                    var value = asset.YieldAmount; value.Amount *= Multiplier; asset.YieldAmount = value;
+                    var asset = buildingAssets[row.id]; originals.Add(asset.YieldAmount.Amount); 
+                    var value = asset.YieldAmount; value.Amount *= Multiplier;
+                    value.Amount *= overallBonus; // increase gains by modifier
+                    asset.YieldAmount = value;
                 }
                 manager.Tick();
                 for (int i = 0; i < buildings.Count; i++)
@@ -306,6 +314,7 @@ namespace COMP2165.Clicker
             { goldVisible = true; nextGold = Time.time + goldInterval; }
             if (Time.time >= nextSave) { SaveProgress(); nextSave = Time.time + 15; }
             RefreshCanvas();
+            RefreshCustom();
         }
 
         void ClickCookie()
@@ -315,7 +324,7 @@ namespace COMP2165.Clicker
             {
                 if (row.clickAmount <= 0) continue;
                 var source = clickAssets[row.id];
-                source.Amount = row.clickAmount * Multiplier;
+                source.Amount = row.clickAmount * Multiplier * overallBonus; // bonus for killing new tier of pests
                 manager.Click(source);
                 source.Amount = row.clickAmount;
             }
@@ -698,7 +707,7 @@ namespace COMP2165.Clicker
             ui.stackButton.gameObject.SetActive(eventQueue.Count > 0);
             ui.background.texture = Image("background");
             ui.background.enabled = ui.background.texture != null;
-            ui.cookie.texture = Image("clickable") ?? fallbackCookie;
+            //ui.cookie.texture = Image("clickable") ?? fallbackCookie; redundant due to new manager
             ui.goldenCookie.texture = Image("golden_cookie") ?? fallbackGold;
             ui.goldenButton.gameObject.SetActive(goldVisible);
 
@@ -793,7 +802,14 @@ namespace COMP2165.Clicker
                     total = perk.Operation == Operation.Add ? total + perk.Amount : total * perk.Amount;
                 }
             }
-            return total;
+            return total * overallBonus; // ensures that total adds modified overall bonus variable to it
+        }
+
+        private void RefreshCustom()
+        {
+            double textFriendlyBonus = Math.Round(overallBonus, 2) - 1;
+            OverallBonusTXT.text = "Overall bonus is: " + textFriendlyBonus;
+            PlayerPrefs.SetFloat("overallBonus", overallBonus);
         }
 
     }
