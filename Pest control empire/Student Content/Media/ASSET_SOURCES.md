@@ -38,3 +38,8 @@ mercenary icon: https://villains.fandom.com/wiki/HUNK
 
 squad formation upgrade icon: https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/
 
+market icons:
+
+pesticide exchange icon: https://billmoyers.com/2015/01/23/money-harmful-chemicals-politics/
+
+uranium exchange icon: https://callofduty.fandom.com/wiki/Element_115

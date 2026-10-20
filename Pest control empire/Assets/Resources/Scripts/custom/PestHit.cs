@@ -14,6 +14,9 @@ public class PestHit : MonoBehaviour
     private int textureCount;
     // slider stuff
     public Slider healthDisplay;
+    // reward for defeating a pest (currency id from Currencies.csv)
+    public string rewardCurrency = "reputation";
+    public float rewardAmount = 1;
 
 
     private void OnEnable()
@@ -50,12 +53,13 @@ public class PestHit : MonoBehaviour
         if (hitCount >= requiredHits)
         {
             gameDataRef.overallBonus += 0.1f;
+            gameDataRef.AddCurrency(rewardCurrency, rewardAmount); // each defeated pest earns reputation
             requiredHits *= 3;
             hitCount = 0;
             PlayerPrefs.SetInt("hitsRequired", requiredHits);
             // texture
             textureCount++;
-            if (textureCount > textures.Length-1)
+            if (textureCount > textures.Length - 1)
             {
                 textureCount = 0;
             }

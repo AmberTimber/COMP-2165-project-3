@@ -59,7 +59,10 @@ namespace COMP2165.Clicker
         float goldBonus = 7, bonusDuration = 20, eventInterval = 35, goldInterval = 50, wrongPenalty = 0.1f, sellRefund = 0.5f, shopReveal = 0.5f;
         // custom
         public float overallBonus = 1;
-        public TextMeshProUGUI OverallBonusTXT;
+        // The golden cookie is called the ladybug on screen only; the code, sheets and sounds still say golden.
+        const string GoldenDisplayName = "Ladybug";
+        // Highlight colour for active modifiers; taken from the palette's text_title colour after ClickerPalette.Apply
+        Color modifierAccent = new Color(1f, 0.92f, 0.2f);
 
         void Start()
         {
@@ -233,6 +236,7 @@ namespace COMP2165.Clicker
             nextSave = Time.time + 15;
             shopTooltip = ClickerTooltip.Ensure(ui);
             if (loaded["Palette"].Count > 0) ClickerPalette.Apply(ui, loaded["Palette"]);
+            if (ui.money != null) modifierAccent = ui.money.color; // money uses the text_title palette colour
             ready = true;
             BuildShopRows();
             RefreshCanvas();
@@ -335,15 +339,30 @@ namespace COMP2165.Clicker
         float Historical(Currency asset) { float value; return manager.State.CurrencyHistoricalTotals.TryGetValue(asset, out value) ? value : 0; }
         float Money { get { return Balance(currency); } }
         float Lifetime { get { return Historical(currency); } }
-        float Multiplier
+
+        // Lets other scripts (e.g. PestHit) grant a currency by its Currencies.csv id. Returns false if the game
+        // isn't ready yet or the id is unknown. Gains also count towards the currency's lifetime total.
+        public bool AddCurrency(string id, float amount)
+        {
+            Currency asset;
+            if (!ready || amount == 0 || string.IsNullOrEmpty(id) || !currencyAssets.TryGetValue(id, out asset)) return false;
+            manager.State.CurrencyCurrentTotals[asset] = Mathf.Max(0, Balance(asset) + amount);
+            if (amount > 0) manager.State.CurrencyHistoricalTotals[asset] = Historical(asset) + amount;
+            return true;
+        }
+        // Golden cookie bonus while it lasts, otherwise 1.
+        double GoldenFactor { get { return Time.time < goldEnd ? goldBonus : 1; } }
+        // Every active event boost stacks multiplicatively, otherwise 1.
+        double EventFactor
         {
             get
             {
-                double value = Time.time < goldEnd ? goldBonus : 1;
+                double value = 1;
                 for (int i = 0; i < eventBoostEnds.Count; i++) if (Time.time < eventBoostEnds[i]) value *= goldBonus * 10;
-                return (float)Math.Min(value, 1e12);
+                return value;
             }
         }
+        float Multiplier { get { return (float)Math.Min(GoldenFactor * EventFactor, 1e12); } }
 
         void Update()
         {
@@ -364,7 +383,7 @@ namespace COMP2165.Clicker
             { goldVisible = true; nextGold = Time.time + goldInterval; }
             if (Time.time >= nextSave) { SaveProgress(); nextSave = Time.time + 15; }
             RefreshCanvas();
-            RefreshCustom();
+            RefreshModifiers();
         }
 
         // One production second.
@@ -793,7 +812,7 @@ namespace COMP2165.Clicker
                 if (!ready || !goldVisible) return;
                 EnsureMusic();
                 goldVisible = false; goldEnd = Time.time + bonusDuration;
-                ShowToast("Golden bonus: " + Format(goldBonus) + "x!"); PlaySound("gold");
+                ShowToast(GoldenDisplayName + " bonus: " + Format(goldBonus) + "x!"); PlaySound("gold");
             });
             ui.stackButton.onClick.AddListener(() => { if (ready && eventQueue.Count > 0) eventOpen = true; });
             ui.closeEvent.onClick.AddListener(() => eventOpen = false);
@@ -966,7 +985,12 @@ namespace COMP2165.Clicker
                 float cost = data.inputAmount * batch;
                 float gain = data.outputAmount * batch;
                 row.gameObject.SetActive(true);
-                if (row.icon != null) row.icon.texture = Image(data.image) ?? Icon(data.id, "market");
+                var art = Image(data.image);
+                if (row.icon != null)
+                {
+                    row.icon.gameObject.SetActive(art != null);
+                    if (art != null) row.icon.texture = art;
+                }
                 row.title.text = data.name + "\n+" + Format(gain) + " " + output.name;
                 row.tooltipText = MarketTooltip(data, input, output, batch);
                 row.action.interactable = Balance(input) >= cost;
@@ -1021,11 +1045,53 @@ namespace COMP2165.Clicker
             return total * overallBonus; // ensures that total adds modified overall bonus variable to it
         }
 
-        private void RefreshCustom()
+        // The modifiers panel: the ladybug (golden cookie) bonus, event boosts and the overall bonus, plus their combined effect.
+        void RefreshModifiers()
         {
-            if (OverallBonusTXT == null) return;
-            double textFriendlyBonus = Math.Round(overallBonus, 2) - 1;
-            OverallBonusTXT.text = "Overall bonus is: " + textFriendlyBonus;
+            if (ui.modifierText == null) return;
+            ui.modifierText.text = ModifierSummary(ui.modifierText.supportRichText);
+        }
+
+        // Active values are highlighted in the accent colour (the palette's text_title colour).
+        //   Ladybug       : the golden cookie bonus (gold_multiplier) while it lasts
+        //   Events        : each correct event answer adds a boost; active boosts multiply together
+        //   Overall bonus : shown as +% (overallBonus 1 = +0%); it applies to all currency generation, clicks included
+        string ModifierSummary(bool rich)
+        {
+            string open = rich ? "<color=#" + ColorUtility.ToHtmlStringRGB(modifierAccent) + ">" : string.Empty;
+            string close = rich ? "</color>" : string.Empty;
+            var text = new StringBuilder();
+
+            text.Append(GoldenDisplayName).Append(": ");
+            if (Time.time < goldEnd)
+                text.Append(open).Append('x').Append(Format((float)Math.Min(GoldenFactor, 1e12))).Append(close)
+                    .Append(" (").Append(Mathf.CeilToInt(goldEnd - Time.time)).Append("s left)");
+            else text.Append("none");
+
+            int boosts = 0;
+            float boostLeft = 0;
+            for (int i = 0; i < eventBoostEnds.Count; i++)
+            {
+                if (Time.time >= eventBoostEnds[i]) continue;
+                boosts++;
+                boostLeft = Mathf.Max(boostLeft, eventBoostEnds[i] - Time.time);
+            }
+            text.Append("\nEvents: ");
+            if (boosts > 0)
+                text.Append(open).Append('x').Append(Format((float)Math.Min(EventFactor, 1e12))).Append(close)
+                    .Append(" (").Append(boosts).Append(boosts == 1 ? " boost, " : " boosts, ").Append(Mathf.CeilToInt(boostLeft)).Append("s left)");
+            else text.Append("none");
+
+            float percent = (overallBonus - 1f) * 100f;
+            text.Append("\nPest's removed bonus: ");
+            if (Mathf.Abs(percent) > 0.001f)
+                text.Append(open).Append(percent > 0 ? "+" : string.Empty).Append(percent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
+            else text.Append("+0%");
+
+            float total = Multiplier * overallBonus;
+            bool boosted = Mathf.Abs(total - 1f) > 0.001f;
+            text.Append("\nTotal production: ").Append(boosted ? open : string.Empty).Append('x').Append(Format(total)).Append(boosted ? close : string.Empty);
+            return text.ToString();
         }
 
     }

@@ -17,3 +17,5 @@ text_secondary,#ffffff
 text_button,#00ff15
 text_notification,#FFF8DD
 text_tooltip,#03ddff
+market_panel,#2C2A0F
+market_row,#552B00

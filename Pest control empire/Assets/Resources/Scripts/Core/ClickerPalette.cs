@@ -40,6 +40,17 @@ namespace COMP2165.Clicker
                             if (image != null) image.color = color;
                         }
                         break;
+                    case "market_panel": // the one big panel behind the modifiers text and the market rows
+                        if (view.marketModifierPanel != null) view.marketModifierPanel.color = color;
+                        else Debug.LogWarning("Palette.csv has market_panel, but ClickerCanvasView.marketModifierPanel is not assigned.");
+                        break;
+                    case "market_row": // the rows generated from StoreItems.csv (shop_row only reaches ClickerShopRow)
+                        foreach (var marketRow in view.GetComponentsInChildren<ClickerMarketRow>(true))
+                        {
+                            var image = marketRow.GetComponent<Image>();
+                            if (image != null) image.color = color;
+                        }
+                        break;
                     case "button":
                         foreach (var button in view.GetComponentsInChildren<Button>(true))
                             if (button.targetGraphic is Image image) image.color = color;

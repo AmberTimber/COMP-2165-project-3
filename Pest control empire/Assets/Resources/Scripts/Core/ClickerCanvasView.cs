@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace COMP2165.Clicker
@@ -26,5 +27,7 @@ namespace COMP2165.Clicker
         // or to the template's own parent if marketContent is left empty. marketBatchStatus is optional.
         public RectTransform marketContent;
         public Text marketBatchStatus;
+        // The one big panel behind both the modifiers text and the market rows. Coloured by market_panel in Palette.csv.
+        [FormerlySerializedAs("marketPanel")] public Graphic marketModifierPanel;
     }
 }
