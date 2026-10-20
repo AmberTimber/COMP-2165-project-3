@@ -23,9 +23,8 @@ namespace COMP2165.Clicker
         public Text modifierText;
         public ClickerMarketRow buildingMarket;
         public Button buyOneR, buyTenR, butHundredR;
-        // Market (StoreItems sheet). buildingMarket is the row template; generated rows are parented to marketContent,
-        // or to the template's own parent if marketContent is left empty. marketBatchStatus is optional.
-        public RectTransform marketContent;
+        // Market (StoreItems sheet). buildingMarket is the row template; generated rows are added next to it,
+        // under the template's own parent. marketBatchStatus is optional.
         public Text marketBatchStatus;
         // The one big panel behind both the modifiers text and the market rows. Coloured by market_panel in Palette.csv.
         [FormerlySerializedAs("marketPanel")] public Graphic marketModifierPanel;

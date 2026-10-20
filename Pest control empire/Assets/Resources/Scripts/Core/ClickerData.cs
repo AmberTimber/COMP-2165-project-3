@@ -57,6 +57,20 @@ namespace COMP2165.Clicker
             float value;
             return float.TryParse(Get(row, key), NumberStyles.Float, CultureInfo.InvariantCulture, out value) ? value : fallback;
         }
+
+        // Reads a share and returns it as 0..1. Accepts a fraction (0.5), a percent number (50) or Excel's percent text ("50%").
+        // Plain numbers above 1 count as percents; exactly 1 means 100%. Blank or unreadable cells give the fallback.
+        public static float Fraction(Dictionary<string, string> row, string key, float fallback = 0)
+        {
+            string text = Get(row, key);
+            if (text.Length == 0) return fallback;
+            bool percent = text.EndsWith("%");
+            if (percent) text = text.Substring(0, text.Length - 1).Trim();
+            float value;
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return fallback;
+            if (percent || value > 1f) value /= 100f;
+            return Math.Max(0f, Math.Min(1f, value));
+        }
     }
 
     [Serializable] public class CurrencyData { public string id, name; public float startingAmount, clickAmount; }
@@ -71,6 +85,9 @@ namespace COMP2165.Clicker
         public string conesume_currency;
         /// <summary>Amount of conesume_currency burned per owned building, per second. 0 = consumes nothing.</summary>
         public float consumeable;
+        /// <summary>Share (0 to 1) of its normal output a building still makes when it can't pay for any of its input.
+        /// Sheet column "productionW/Oconsumption". 0 = it stops completely; with partial input the output sits in between.</summary>
+        public float productionWithoutConsumption;
     }
     // One row of the StoreItems sheet: pay inputAmount of inputCurrency, receive outputAmount of outputCurrency (per purchase).
     [Serializable]

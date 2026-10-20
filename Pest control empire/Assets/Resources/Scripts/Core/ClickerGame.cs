@@ -38,6 +38,8 @@ namespace COMP2165.Clicker
         // consumption: which currency each consuming building burns, and how well fed each building was last tick (0..1)
         readonly Dictionary<string, Currency> consumeAssets = new Dictionary<string, Currency>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<Building, float> satisfaction = new Dictionary<Building, float>();
+        // how much of its normal output each building made last tick (see RunProductionTick)
+        readonly Dictionary<Building, float> outputFactor = new Dictionary<Building, float>();
         // market (StoreItems sheet): currency exchanges
         readonly List<StoreItemData> storeItems = new List<StoreItemData>();
         readonly Dictionary<string, ClickerMarketRow> marketRows = new Dictionary<string, ClickerMarketRow>(StringComparer.OrdinalIgnoreCase);
@@ -152,7 +154,9 @@ namespace COMP2165.Clicker
                     // consumption: currency id burned by this building, and how much per building per second.
                     // Header is spelled "conesume_currency" in the sheet; "consume_currency" is accepted too.
                     conesume_currency = Csv.Get(row, "conesume_currency", Csv.Get(row, "consume_currency")),
-                    consumeable = Csv.Number(row, "consumeable")
+                    consumeable = Csv.Number(row, "consumeable"),
+                    // share of normal output still made when none of the consumed currency can be paid for
+                    productionWithoutConsumption = Csv.Fraction(row, "productionW/Oconsumption")
                 };
                 item.unlockCurrency = Csv.Get(row, "unlock_currency", item.costCurrency);
                 if (string.IsNullOrEmpty(item.id) || item.cost < 0 || item.perSecond < 0 || item.consumeable < 0) { error = "Invalid Buildings.csv row: " + item.id; yield break; }
@@ -411,9 +415,13 @@ namespace COMP2165.Clicker
                     fed = Mathf.Clamp01(available / demand);
                     stock[input] = available - demand * fed;
                 }
+                // fed = share of its input it could pay for (this is what it burns). Output runs from the sheet's
+                // productionW/Oconsumption share when it paid for nothing, up to 100% when fully fed.
+                float factor = row.productionWithoutConsumption + (1f - row.productionWithoutConsumption) * fed;
                 satisfaction[asset] = fed;
+                outputFactor[asset] = factor;
                 var value = asset.YieldAmount;
-                value.Amount = originals[i] * boost * fed;
+                value.Amount = originals[i] * boost * factor;
                 asset.YieldAmount = value;
             }
             foreach (var pair in stock) manager.State.CurrencyCurrentTotals[pair.Key] = Mathf.Max(0, pair.Value);
@@ -423,6 +431,7 @@ namespace COMP2165.Clicker
         }
 
         float Satisfaction(Building asset) { float value; return satisfaction.TryGetValue(asset, out value) ? value : 1; }
+        float OutputFactor(Building asset) { float value; return outputFactor.TryGetValue(asset, out value) ? value : 1; }
 
         // Total amount of a currency burned per second by all owned buildings (as fed during the last tick).
         float ConsumptionPerSecond(Currency asset)
@@ -433,6 +442,20 @@ namespace COMP2165.Clicker
                 Currency input;
                 if (row.consumeable <= 0 || !consumeAssets.TryGetValue(row.id, out input) || input != asset) continue;
                 total += row.consumeable * BuildingCount(row) * Satisfaction(buildingAssets[row.id]);
+            }
+            return total;
+        }
+
+        // What owned buildings would burn per second of a currency if every one of them were fully fed.
+        // Unlike ConsumptionPerSecond this doesn't shrink when buildings are starved, so it is the figure to buy against.
+        float ConsumptionDemandPerSecond(Currency asset)
+        {
+            float total = 0;
+            foreach (var row in buildings)
+            {
+                Currency input;
+                if (row.consumeable <= 0 || !consumeAssets.TryGetValue(row.id, out input) || input != asset) continue;
+                total += row.consumeable * BuildingCount(row);
             }
             return total;
         }
@@ -450,7 +473,9 @@ namespace COMP2165.Clicker
                 input = consumeAssets[data.id];
                 text.Append("\nConsumes ").Append(Format(data.consumeable)).Append(' ').Append(input.name).Append("/s each");
                 if (count > 0) text.Append(" (").Append(Format(data.consumeable * count)).Append("/s total)");
-                if (starved) text.Append("\nNot enough ").Append(input.name).Append(" - running at ").Append(Mathf.RoundToInt(Satisfaction(buildingAssets[data.id]) * 100)).Append("%");
+                int floorPercent = Mathf.RoundToInt(data.productionWithoutConsumption * 100f);
+                text.Append(floorPercent > 0 ? "\nWithout it: " + floorPercent + "% output" : "\nStops without it");
+                if (starved) text.Append("\nNot enough ").Append(input.name).Append(" - producing ").Append(Mathf.RoundToInt(OutputFactor(buildingAssets[data.id]) * 100)).Append("%");
             }
             if (!unlocked) text.Append("\nUnlock at ").Append(Format(data.unlockAt)).Append(" lifetime ").Append(unlockCurrency.name);
             return text.ToString();
@@ -517,14 +542,27 @@ namespace COMP2165.Clicker
         bool HasMarketBatchButtons { get { return ui != null && ui.buyOneR != null && ui.buyTenR != null && ui.butHundredR != null; } }
         int MarketBatch { get { return HasMarketBatchButtons ? marketBatch : buildingBatch; } }
 
-        // Pay inputAmount x batch of the input currency, receive OutputAmount x batch of the output currency.
+        // How many purchases one click makes. Normally that is the market batch (x1 / x10 / x100).
+        // When buildings consume the item's output currency, the batch instead means "seconds of consumption to cover":
+        // the count is what those buildings would use in that many seconds, rounded up to whole purchases.
+        // Either way it is capped at what the player can afford, and never below 1 so the row always shows a price.
+        float MarketCount(StoreItemData row, Currency input, Currency output)
+        {
+            float need = ConsumptionDemandPerSecond(output);
+            float wanted = need > 0 ? Mathf.Ceil(need * MarketBatch / row.outputAmount) : MarketBatch;
+            wanted = Mathf.Clamp(wanted, 1f, 1e9f);
+            float affordable = Mathf.Floor(Balance(input) / row.inputAmount);
+            return Mathf.Max(1f, Mathf.Min(wanted, affordable));
+        }
+
+        // Pay inputAmount x count of the input currency, receive OutputAmount x count of the output currency.
         void TransactStoreItem(StoreItemData row)
         {
-            int batch = MarketBatch;
             var input = currencyAssets[row.inputCurrency];
             var output = currencyAssets[row.outputCurrency];
-            float cost = row.inputAmount * batch;
-            float gain = row.outputAmount * batch;
+            float count = MarketCount(row, input, output);
+            float cost = row.inputAmount * count;
+            float gain = row.outputAmount * count;
             if (Balance(input) < cost) return;
             manager.State.CurrencyCurrentTotals[input] = Balance(input) - cost;
             manager.State.CurrencyCurrentTotals[output] = Balance(output) + gain;
@@ -534,18 +572,21 @@ namespace COMP2165.Clicker
             SaveProgress();
         }
 
-        string MarketTooltip(StoreItemData data, Currency input, Currency output, int batch)
+        string MarketTooltip(StoreItemData data, Currency input, Currency output, float count)
         {
+            float cost = data.inputAmount * count;
+            float gain = data.outputAmount * count;
             var text = new StringBuilder(data.name);
             if (!string.IsNullOrWhiteSpace(data.tooltip)) text.Append('\n').Append(data.tooltip);
             text.Append("\nRate: ").Append(Format(data.inputAmount)).Append(' ').Append(input.name)
                 .Append(" for ").Append(Format(data.outputAmount)).Append(' ').Append(output.name);
-            if (batch > 1)
-                text.Append("\nx").Append(batch).Append(": ").Append(Format(data.inputAmount * batch)).Append(' ').Append(input.name)
-                    .Append(" for ").Append(Format(data.outputAmount * batch)).Append(' ').Append(output.name);
+            text.Append("\nThis buy: ").Append(Format(cost)).Append(' ').Append(input.name)
+                .Append(" for ").Append(Format(gain)).Append(' ').Append(output.name);
+            float need = ConsumptionDemandPerSecond(output);
+            if (need > 0)
+                text.Append("\nBuildings need ").Append(Format(need)).Append(' ').Append(output.name)
+                    .Append("/s; this covers ").Append(Format(gain / need)).Append("s");
             text.Append("\nYou have ").Append(Format(Balance(output))).Append(' ').Append(output.name);
-            float used = ConsumptionPerSecond(output);
-            if (used > 0) text.Append("\nBuildings are using ").Append(Format(used)).Append(' ').Append(output.name).Append("/s");
             return text.ToString();
         }
 
@@ -869,7 +910,7 @@ namespace COMP2165.Clicker
                 Debug.LogWarning("StoreItems loaded, but ClickerCanvasView.buildingMarket is not assigned, so the market is hidden.");
             if (ui.buildingMarket != null)
             {
-                Transform marketParent = ui.marketContent != null ? ui.marketContent : ui.buildingMarket.transform.parent;
+                Transform marketParent = ui.buildingMarket.transform.parent; // rows are created next to the template
                 foreach (var data in storeItems)
                 {
                     var row = Instantiate(ui.buildingMarket, marketParent);
@@ -974,16 +1015,20 @@ namespace COMP2165.Clicker
                 ui.buyTenR.interactable = marketBatch != 10;
                 ui.butHundredR.interactable = marketBatch != 100;
             }
-            if (ui.marketBatchStatus != null) ui.marketBatchStatus.text = "Buying " + MarketBatch + " at a time";
+            bool coverMode = false; // true when buildings consume something the market sells
+            foreach (var stock in storeItems)
+                if (ConsumptionDemandPerSecond(currencyAssets[stock.outputCurrency]) > 0) coverMode = true;
+            if (ui.marketBatchStatus != null)
+                ui.marketBatchStatus.text = coverMode ? "Covering " + MarketBatch + "s of consumption per buy" : "Buying " + MarketBatch + " at a time";
             foreach (var data in storeItems)
             {
                 ClickerMarketRow row;
                 if (!marketRows.TryGetValue(data.id, out row)) continue;
                 var input = currencyAssets[data.inputCurrency];
                 var output = currencyAssets[data.outputCurrency];
-                int batch = MarketBatch;
-                float cost = data.inputAmount * batch;
-                float gain = data.outputAmount * batch;
+                float count = MarketCount(data, input, output);
+                float cost = data.inputAmount * count;
+                float gain = data.outputAmount * count;
                 row.gameObject.SetActive(true);
                 var art = Image(data.image);
                 if (row.icon != null)
@@ -992,7 +1037,7 @@ namespace COMP2165.Clicker
                     if (art != null) row.icon.texture = art;
                 }
                 row.title.text = data.name + "\n+" + Format(gain) + " " + output.name;
-                row.tooltipText = MarketTooltip(data, input, output, batch);
+                row.tooltipText = MarketTooltip(data, input, output, count);
                 row.action.interactable = Balance(input) >= cost;
                 row.actionText.text = "BUY\n" + Format(cost) + " " + input.name;
             }
@@ -1023,7 +1068,7 @@ namespace COMP2165.Clicker
                 var building = owned.Key;
                 if (building.YieldAmount.Currency != asset) continue;
                 // each building's upgrades only touch that building's own output
-                float contribution = building.YieldAmount.Amount * owned.Value * Multiplier * Satisfaction(building);
+                float contribution = building.YieldAmount.Amount * owned.Value * Multiplier * OutputFactor(building);
                 foreach (var upgrade in manager.State.EarnedUpgrades)
                 {
                     foreach (var perk in upgrade.UpgradePerk)
@@ -1083,7 +1128,7 @@ namespace COMP2165.Clicker
             else text.Append("none");
 
             float percent = (overallBonus - 1f) * 100f;
-            text.Append("\nPest's removed bonus: ");
+            text.Append("\nOverall bonus: ");
             if (Mathf.Abs(percent) > 0.001f)
                 text.Append(open).Append(percent > 0 ? "+" : string.Empty).Append(percent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");
