@@ -60,12 +60,31 @@ namespace COMP2165.Clicker
     }
 
     [Serializable] public class CurrencyData { public string id, name; public float startingAmount, clickAmount; }
-    [Serializable] public class BuildingData { public string id, name, description, tooltip, image, costCurrency, yieldCurrency, unlockCurrency; public float cost, perSecond, unlockAt; }
+    [Serializable]
+    public class BuildingData
+    {
+        public string id, name, description, tooltip, image, costCurrency, yieldCurrency, unlockCurrency;
+        public float cost, perSecond, unlockAt;
+
+        // Consumption. Both come from the Buildings sheet. The header spelling "conesume_currency" is kept to match it.
+        /// <summary>Currency id this building burns every second (e.g. "sugar"). Ignored when consumeable is 0.</summary>
+        public string conesume_currency;
+        /// <summary>Amount of conesume_currency burned per owned building, per second. 0 = consumes nothing.</summary>
+        public float consumeable;
+    }
+    // One row of the StoreItems sheet: pay inputAmount of inputCurrency, receive outputAmount of outputCurrency (per purchase).
+    [Serializable]
+    public class StoreItemData
+    {
+        public string id, name, description, tooltip, image, inputCurrency, outputCurrency;
+        public float inputAmount, outputAmount;
+    }
     [Serializable] public class UpgradeData { public string id, name, description, tooltip, targetType, targetId, operation, image, costCurrency, unlockCurrency; public float cost, amount, unlockAt; }
     [Serializable] public class EventData { public string title, description, option1, option2, image, sound, currencyId; public int correctOption; }
     [Serializable] public class BuildingSave { public string id; public int count; }
     [Serializable] public class CurrencySave { public string id; public float amount, lifetime; }
-    [Serializable] public class ClickerSave
+    [Serializable]
+    public class ClickerSave
     {
         public float money, lifetime;
         public List<CurrencySave> currencies = new List<CurrencySave>();

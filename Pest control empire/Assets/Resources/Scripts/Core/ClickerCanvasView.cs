@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,6 +18,13 @@ namespace COMP2165.Clicker
         public GameObject buildingControls, buildingList, upgradeList, eventOverlay, toastPanel, loadingPanel;
         public RectTransform buildingContent, upgradeContent;
         public ClickerShopRow buildingTemplate, upgradeTemplate;
+        [Header("Custom")]
+        public Text modifierText;
+        public ClickerMarketRow buildingMarket;
+        public Button buyOneR, buyTenR, butHundredR;
+        // Market (StoreItems sheet). buildingMarket is the row template; generated rows are parented to marketContent,
+        // or to the template's own parent if marketContent is left empty. marketBatchStatus is optional.
+        public RectTransform marketContent;
+        public Text marketBatchStatus;
     }
-
 }
