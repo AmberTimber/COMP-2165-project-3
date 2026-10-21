@@ -1108,7 +1108,7 @@ namespace COMP2165.Clicker
                 float value = BuildingBatchValue(data, count, sellingBuildings);
                 row.icon.texture = Image(data.image) ?? Icon(data.id, data.id);
                 bool starved = count > 0 && data.consumeable > 0 && Satisfaction(asset) < 0.999f;
-                row.title.text = data.name + "  ×" + count + (starved ? "  (starved)" : "");
+                row.title.text = data.name + "  ×" + count + (starved ? "  (Underutilized)" : "");
                 row.tooltipText = BuildingTooltip(data, count, unlocked, unlockCurrency, starved);
                 row.action.interactable = unlocked && (sellingBuildings ? count >= buildingBatch : Balance(costCurrency) >= value);
                 row.actionText.text = !unlocked ? "LOCKED" : sellingBuildings && count < buildingBatch ? "NEED " + buildingBatch : (sellingBuildings ? "SELL\n" : "BUY\n") + Format(value) + " " + costCurrency.name;

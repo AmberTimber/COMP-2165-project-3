@@ -47,6 +47,7 @@ public class PestHit : MonoBehaviour
         healthDisplay.maxValue = requiredHits;
         healthDisplay.minValue = 0;
         healthDisplay.value = hitCount;
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
     // Update is called once per frame
     void Update()
@@ -69,7 +70,6 @@ public class PestHit : MonoBehaviour
             // slider
             healthDisplay.maxValue = requiredHits;
         }
-        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
     private void HitPest()
@@ -77,5 +77,6 @@ public class PestHit : MonoBehaviour
         hitCount++;
         PlayerPrefs.SetInt("hits", hitCount);
         healthDisplay.value = hitCount;
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 }

@@ -32,20 +32,33 @@ fumigator icon: https://www.airtasker.com/au/jobs/pest-control/sydney/
 
 chef icon: https://www.instagram.com/gordongram/
 
-hunter icon: https://en.wikipedia.org/wiki/John_Rambo
+hunter icon: https://www.imdb.com/title/tt0083944/?ref_=mv_close
 
 mercenary icon: https://villains.fandom.com/wiki/HUNK
 
+upgrade icons:
 squad formation upgrade icon: https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/
 
 market icons:
-
 pesticide exchange icon: https://billmoyers.com/2015/01/23/money-harmful-chemicals-politics/
-
 uranium exchange icon: https://callofduty.fandom.com/wiki/Element_115'
 
+misc:
 splat sound effect: https://www.myinstants.com/en/instant/ralsei-splat-44947/
-
 splat icon: https://publicdomainvectors.org/en/free-clipart/Splat-in-green-color/76832.html
+
+event icons:
+injury: https://familyguy.fandom.com/wiki/Peter_hurts_his_knee
+equipment: https://www.curseforge.com/minecraft/mc-mods/low-durability-switcher
+mistake: https://knowyourmeme.com/memes/worried-hiroshi-uchiyamada-gto-gif
+quality: https://twitterx.fandom.com/wiki/X_verification_line
+fire: https://nypost.com/2021/04/28/disaster-girl-selling-original-photo-behind-viral-meme/
+hire: https://half-life.fandom.com/wiki/The_G-Man
+protest: https://en.wikipedia.org/wiki/Tank_Man
+
+sounds:
+ladybug/golden cookie sfx: https://youtu.be/JJClRjDYFL0
+buy: https://www.myinstants.com/en/instant/terraria-coins-71682/
+
 
 

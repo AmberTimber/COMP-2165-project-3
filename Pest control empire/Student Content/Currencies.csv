@@ -1,6 +1,5 @@
 "id","name","starting_amount","click_amount"
 "cash","Money","0","0.1"
-"reputation","reputation","50","0"
 "resources","Pesticides","0","0"
 "uranium","uranium","0","0"
-"damage","damage","0","0"
+"reputation","reputation","50","0"
