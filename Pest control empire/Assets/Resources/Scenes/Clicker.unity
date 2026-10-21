@@ -4840,7 +4840,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 307821498432534798, guid: c8b31cba86809f04389548af4c74ccfe, type: 3}
       propertyPath: eventTimeLimit
-      value: 15
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 307821498432534798, guid: c8b31cba86809f04389548af4c74ccfe, type: 3}
       propertyPath: OverallBonusTXT
