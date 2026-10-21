@@ -42,4 +42,10 @@ market icons:
 
 pesticide exchange icon: https://billmoyers.com/2015/01/23/money-harmful-chemicals-politics/
 
-uranium exchange icon: https://callofduty.fandom.com/wiki/Element_115
+uranium exchange icon: https://callofduty.fandom.com/wiki/Element_115'
+
+splat sound effect: https://www.myinstants.com/en/instant/ralsei-splat-44947/
+
+splat icon: https://publicdomainvectors.org/en/free-clipart/Splat-in-green-color/76832.html
+
+

@@ -29,8 +29,7 @@ namespace COMP2165.Clicker
         readonly List<BuildingData> buildings = new List<BuildingData>();
         readonly List<UpgradeData> upgrades = new List<UpgradeData>();
         readonly List<EventData> events = new List<EventData>();
-        readonly List<EventData> eventQueue = new List<EventData>();
-        readonly List<float> eventBoostEnds = new List<float>();
+        readonly List<QueuedEvent> eventQueue = new List<QueuedEvent>(); // newest last; the last one is the one on screen
         readonly Dictionary<string, Building> buildingAssets = new Dictionary<string, Building>();
         readonly Dictionary<string, Upgrade> upgradeAssets = new Dictionary<string, Upgrade>();
         readonly Dictionary<string, ClickerShopRow> buildingRows = new Dictionary<string, ClickerShopRow>();
@@ -61,8 +60,15 @@ namespace COMP2165.Clicker
         float goldBonus = 7, bonusDuration = 20, eventInterval = 35, goldInterval = 50, wrongPenalty = 0.1f, sellRefund = 0.5f, shopReveal = 0.5f;
         // custom
         public float overallBonus = 1;
+        [Tooltip("Seconds an event stays on screen before it counts as failed. 0 = no time limit.")]
+        public float eventTimeLimit = 20f;
+        // Settings.csv event_multiplier: a correct event answer pays this percent of the most the buildings could make
+        // over bonus_duration_seconds (see EventReward)
+        float eventRewardPercent = 100;
         // The golden cookie is called the ladybug on screen only; the code, sheets and sounds still say golden.
         const string GoldenDisplayName = "Ladybug";
+        // In the Events sheet's Success Building / Failure Building columns, this word means "one building the player owns, picked at random".
+        const string RandomBuilding = "random";
         // Highlight colour for active modifiers; taken from the palette's text_title colour after ClickerPalette.Apply
         Color modifierAccent = new Color(1f, 0.92f, 0.2f);
 
@@ -122,9 +128,10 @@ namespace COMP2165.Clicker
             eventInterval = Setting("event_interval_seconds", 35);
             goldInterval = Setting("gold_interval_seconds", 50);
             wrongPenalty = Setting("wrong_penalty_percent", 10) / 100f;
+            eventRewardPercent = Setting("event_multiplier", 100);
             sellRefund = Setting("sell_refund_percent", 50) / 100f;
             shopReveal = Setting("shop_reveal_percent", 50) / 100f;
-            if (goldBonus < 1 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
+            if (goldBonus < 1 || eventRewardPercent < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
             { error = "Check multiplier, duration, interval and penalty values in Settings.csv."; yield break; }
 
             foreach (var row in loaded["Currencies"])
@@ -175,7 +182,23 @@ namespace COMP2165.Clicker
                 int correctOption;
                 if (!int.TryParse(Csv.Get(row, "Correct Option"), NumberStyles.Integer, CultureInfo.InvariantCulture, out correctOption) || correctOption < 0 || correctOption > 2)
                 { error = "Every event needs Correct Option 0 (random), 1, or 2."; yield break; }
-                var item = new EventData { title = Csv.Get(row, "Event Title"), description = Csv.Get(row, "Event Description"), option1 = Csv.Get(row, "Event Option 1"), option2 = Csv.Get(row, "Event Option 2"), image = Csv.Get(row, "Image"), sound = Csv.Get(row, "Sound"), currencyId = Csv.Get(row, "Currency", primaryId), correctOption = correctOption };
+                var item = new EventData
+                {
+                    title = Csv.Get(row, "Event Title"),
+                    description = Csv.Get(row, "Event Description"),
+                    option1 = Csv.Get(row, "Event Option 1"),
+                    option2 = Csv.Get(row, "Event Option 2"),
+                    image = Csv.Get(row, "Image"),
+                    sound = Csv.Get(row, "Sound"),
+                    currencyId = Csv.Get(row, "Currency", primaryId),
+                    correctOption = correctOption,
+                    // optional: a correct answer gives buildings, a wrong answer or a timeout takes them away (blank count = 1)
+                    successBuilding = Csv.Get(row, "Success Building"),
+                    successCount = Mathf.RoundToInt(Csv.Number(row, "Success Building Count", 1)),
+                    failureBuilding = Csv.Get(row, "Failure Building"),
+                    failureCount = Mathf.RoundToInt(Csv.Number(row, "Failure Building Count", 1))
+                };
+                if (item.successCount < 0 || item.failureCount < 0) { error = "Events.csv: building counts can't be negative (event '" + item.title + "')."; yield break; }
                 events.Add(item);
             }
             foreach (var row in loaded["StoreItems"])
@@ -328,6 +351,21 @@ namespace COMP2165.Clicker
                 { error = "Store item " + row.id + " has the same input and output currency."; return; }
             }
             foreach (var row in events) if (!currencyAssets.ContainsKey(row.currencyId)) { error = "Unknown event currency: " + row.currencyId; return; }
+            foreach (var row in events)
+            {
+                if (!string.IsNullOrEmpty(row.successBuilding))
+                {
+                    string known = BuildingIdFor(row.successBuilding);
+                    if (known == null) { error = "Events.csv: unknown Success Building '" + row.successBuilding + "' in event '" + row.title + "'."; return; }
+                    row.successBuilding = known;
+                }
+                if (!string.IsNullOrEmpty(row.failureBuilding))
+                {
+                    string known = BuildingIdFor(row.failureBuilding);
+                    if (known == null) { error = "Events.csv: unknown Failure Building '" + row.failureBuilding + "' in event '" + row.title + "'."; return; }
+                    row.failureBuilding = known;
+                }
+            }
             manager = ScriptableObject.CreateInstance<ClickerManager>();
             manager.Config = new ManagerConfig { Currencies = uCurrencies.ToArray(), Clickables = uClickables.ToArray(), AvailableBuildings = uBuildings.ToArray(), AvailableUpgrades = uUpgrades.ToArray(), BuildingCostIncrease = Setting("building_cost_growth_percent", 15) / 100f };
             manager.OnEnable();
@@ -356,17 +394,7 @@ namespace COMP2165.Clicker
         }
         // Golden cookie bonus while it lasts, otherwise 1.
         double GoldenFactor { get { return Time.time < goldEnd ? goldBonus : 1; } }
-        // Every active event boost stacks multiplicatively, otherwise 1.
-        double EventFactor
-        {
-            get
-            {
-                double value = 1;
-                for (int i = 0; i < eventBoostEnds.Count; i++) if (Time.time < eventBoostEnds[i]) value *= goldBonus * 10;
-                return value;
-            }
-        }
-        float Multiplier { get { return (float)Math.Min(GoldenFactor * EventFactor, 1e12); } }
+        float Multiplier { get { return (float)Math.Min(GoldenFactor, 1e12); } }
 
         void Update()
         {
@@ -375,14 +403,14 @@ namespace COMP2165.Clicker
                 if (ui != null && ui.loadingText != null) ui.loadingText.text = error ?? "Loading game data...";
                 return;
             }
-            for (int i = eventBoostEnds.Count - 1; i >= 0; i--) if (Time.time >= eventBoostEnds[i]) eventBoostEnds.RemoveAt(i);
+            ExpireEvents(); // events nobody answered in time fail
             if (Time.time >= nextTick)
             {
                 nextTick = Time.time + 1;
                 RunProductionTick();
             }
             if (Time.time >= nextEvent && events.Count > 0)
-            { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
+            { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); eventOpen = true; nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
             if (Time.time >= nextGold && !goldVisible)
             { goldVisible = true; nextGold = Time.time + goldInterval; }
             if (Time.time >= nextSave) { SaveProgress(); nextSave = Time.time + 15; }
@@ -590,44 +618,132 @@ namespace COMP2165.Clicker
             return text.ToString();
         }
 
-        EventData QueueEvent(EventData source)
+        // An event waiting for an answer. correct is 1 or 2 (the sheet's Correct Option, or random when that is 0).
+        // flipped swaps which button shows which option. deadline is the moment it counts as failed.
+        class QueuedEvent
         {
-            if (source.correctOption != 0) return source;
-            return new EventData
+            public EventData data;
+            public int correct;
+            public bool flipped;
+            public float deadline;
+        }
+
+        QueuedEvent QueueEvent(EventData source)
+        {
+            return new QueuedEvent
             {
-                title = source.title,
-                description = source.description,
-                option1 = source.option1,
-                option2 = source.option2,
-                image = source.image,
-                sound = source.sound,
-                currencyId = source.currencyId,
-                correctOption = UnityEngine.Random.Range(1, 3)
+                data = source,
+                correct = source.correctOption != 0 ? source.correctOption : UnityEngine.Random.Range(1, 3),
+                flipped = UnityEngine.Random.value < 0.5f, // the answers land on random sides
+                deadline = eventTimeLimit > 0 ? Time.time + eventTimeLimit : float.PositiveInfinity
             };
         }
 
-        void ResolveEvent(int choice)
+        // Seconds left to answer, or -1 when events have no time limit.
+        float EventTimeLeft(QueuedEvent queued)
+        {
+            return float.IsPositiveInfinity(queued.deadline) ? -1f : Mathf.Max(0f, queued.deadline - Time.time);
+        }
+
+        // An event nobody answered in time fails, exactly like a wrong answer.
+        void ExpireEvents()
+        {
+            bool expired = false;
+            for (int i = eventQueue.Count - 1; i >= 0; i--)
+            {
+                if (Time.time < eventQueue[i].deadline) continue;
+                var late = eventQueue[i];
+                eventQueue.RemoveAt(i);
+                FinishEvent(late.data, false, "Out of time!");
+                expired = true;
+            }
+            if (!expired) return;
+            if (eventQueue.Count == 0) eventOpen = false;
+            SaveProgress();
+        }
+
+        // side is the button pressed: 1 = left, 2 = right. A flipped event shows its options the other way round.
+        void ResolveEvent(int side)
         {
             if (eventQueue.Count == 0) return;
-            EventData current = eventQueue[eventQueue.Count - 1];
-            if (choice == current.correctOption)
+            var current = eventQueue[eventQueue.Count - 1];
+            int choice = current.flipped ? 3 - side : side;
+            eventQueue.RemoveAt(eventQueue.Count - 1);
+            FinishEvent(current.data, choice == current.correct, choice == current.correct ? "Good call!" : "Wrong call.");
+            if (eventQueue.Count == 0) eventOpen = false;
+            SaveProgress();
+        }
+
+        // Applies an event's result and says what happened in the toast.
+        //   success: a currency reward (see EventReward), plus any Success Building from the sheet
+        //   failure: the wrong_penalty_percent loss of the event's currency, plus any Failure Building from the sheet
+        void FinishEvent(EventData data, bool success, string lead)
+        {
+            var eventCurrency = currencyAssets[data.currencyId];
+            var message = new StringBuilder(lead).Append(' ');
+            if (success)
             {
-                eventBoostEnds.Add(Time.time + bonusDuration);
-                ShowToast("Good call! " + Format(goldBonus * 10) + "x for " + Format(bonusDuration) + " seconds.");
-                PlaySound("success");
+                float reward = EventReward(eventCurrency);
+                AddCurrency(data.currencyId, reward);
+                message.Append('+').Append(Format(reward)).Append(' ').Append(eventCurrency.name);
+                string giveTo = EventBuilding(data.successBuilding);
+                int gained = ChangeBuildings(giveTo, data.successCount);
+                if (gained > 0) message.Append(", +").Append(gained).Append(' ').Append(BuildingName(giveTo));
             }
             else
             {
-                var eventCurrency = currencyAssets[current.currencyId];
                 float balance = Balance(eventCurrency);
                 float loss = Mathf.Min(balance, balance * wrongPenalty);
                 manager.State.CurrencyCurrentTotals[eventCurrency] = balance - loss;
-                ShowToast("Wrong call. Lost " + Format(loss) + " " + eventCurrency.name + ".");
-                PlaySound("failure");
+                message.Append("Lost ").Append(Format(loss)).Append(' ').Append(eventCurrency.name);
+                string takeFrom = EventBuilding(data.failureBuilding);
+                int lost = ChangeBuildings(takeFrom, -data.failureCount);
+                if (lost > 0) message.Append(", -").Append(lost).Append(' ').Append(BuildingName(takeFrom));
             }
-            eventQueue.RemoveAt(eventQueue.Count - 1);
-            if (eventQueue.Count == 0) eventOpen = false;
-            SaveProgress();
+            message.Append('.');
+            ShowToast(message.ToString());
+            PlaySound(success ? "success" : "failure");
+        }
+
+        // What a correct answer pays in a currency: event_multiplier (a percent) of the most the buildings could make
+        // over bonus_duration_seconds. "Most" means every building at full output (as if fully fed), bonuses included.
+        float EventReward(Currency asset) { return eventRewardPercent / 100f * MaxPerSecond(asset) * bonusDuration; }
+
+        // The building an event acts on: the sheet's building id, or for "random" one of the building kinds the player
+        // currently owns (each owned kind equally likely, however many of it they have). Null when they own nothing.
+        string EventBuilding(string setting)
+        {
+            if (setting != RandomBuilding) return setting;
+            var owned = new List<string>();
+            foreach (var row in buildings) if (BuildingCount(row) > 0) owned.Add(row.id);
+            return owned.Count > 0 ? owned[UnityEngine.Random.Range(0, owned.Count)] : null;
+        }
+
+        // Gives (positive) or takes (negative) owned buildings without charging or refunding anything.
+        // Returns how many were actually added or removed; removal stops at none owned.
+        int ChangeBuildings(string id, int change)
+        {
+            Building asset;
+            if (string.IsNullOrEmpty(id) || change == 0 || !buildingAssets.TryGetValue(id, out asset)) return 0;
+            int owned;
+            manager.State.EarnedBuildings.TryGetValue(asset, out owned);
+            int updated = Mathf.Max(0, owned + change);
+            manager.State.EarnedBuildings[asset] = updated;
+            return Mathf.Abs(updated - owned);
+        }
+
+        // The building's id as written in Buildings.csv (matching ignores case), the keyword "random", or null if there is no such building.
+        string BuildingIdFor(string id)
+        {
+            if (string.Equals(id, RandomBuilding, StringComparison.OrdinalIgnoreCase)) return RandomBuilding;
+            foreach (var row in buildings) if (string.Equals(row.id, id, StringComparison.OrdinalIgnoreCase)) return row.id;
+            return null;
+        }
+
+        string BuildingName(string id)
+        {
+            foreach (var row in buildings) if (row.id == id) return row.name;
+            return id;
         }
 
         void ShowToast(string message) { toast = message; toastUntil = Time.time + 4; }
@@ -952,8 +1068,13 @@ namespace COMP2165.Clicker
             ui.money.text = balances.ToString();
             ui.production.text = production.Append("  •  ").Append(Format(Multiplier)).Append("x active").ToString();
             ui.eventCount.text = "EVENTS x " + eventQueue.Count;
-            ui.stackButtonText.text = "OPEN STACK";
-            ui.stackButton.gameObject.SetActive(eventQueue.Count > 0);
+            // the event panel opens by itself; this button only brings it back after the player closed it
+            ui.stackButton.gameObject.SetActive(eventQueue.Count > 0 && !eventOpen);
+            if (eventQueue.Count > 0)
+            {
+                float stackLeft = EventTimeLeft(eventQueue[eventQueue.Count - 1]);
+                ui.stackButtonText.text = "OPEN EVENT" + (stackLeft < 0 ? string.Empty : " (" + Mathf.CeilToInt(stackLeft) + "s)");
+            }
             ui.background.texture = Image("background");
             ui.background.enabled = ui.background.texture != null;
             //ui.cookie.texture = Image("clickable") ?? fallbackCookie; redundant due to new manager
@@ -1047,20 +1168,35 @@ namespace COMP2165.Clicker
             ui.eventOverlay.SetActive(showEvent);
             if (showEvent)
             {
-                var current = eventQueue[eventQueue.Count - 1];
+                var queued = eventQueue[eventQueue.Count - 1];
+                var current = queued.data;
                 ui.eventTitle.text = current.title;
                 ui.eventDescription.text = current.description;
                 ui.eventImage.texture = Image(current.image) ?? Icon("event", "all");
-                ui.optionOneText.text = current.option1;
-                ui.optionTwoText.text = current.option2;
-                ui.eventQueueText.text = eventQueue.Count + " card(s) waiting. Close to return to the game.";
+                // the two answers sit on random sides, fixed for each event
+                ui.optionOneText.text = queued.flipped ? current.option2 : current.option1;
+                ui.optionTwoText.text = queued.flipped ? current.option1 : current.option2;
+                float timeLeft = EventTimeLeft(queued);
+                string timeText = timeLeft < 0 ? string.Empty : "Time left: " + Mathf.CeilToInt(timeLeft) + "s";
+                string waitingText = eventQueue.Count > 1 ? (eventQueue.Count - 1) + " more waiting" : string.Empty;
+                if (ui.eventTimerText != null)
+                {
+                    ui.eventTimerText.text = timeText;
+                    ui.eventQueueText.text = waitingText;
+                }
+                else ui.eventQueueText.text = timeText.Length > 0 && waitingText.Length > 0 ? timeText + "  •  " + waitingText : timeText + waitingText;
             }
             bool showToast = !string.IsNullOrEmpty(toast) && Time.time < toastUntil;
             ui.toastPanel.SetActive(showToast);
             if (showToast) ui.toastText.text = toast;
         }
 
-        float PerSecond(Currency asset)
+        float PerSecond(Currency asset) { return Production(asset, false); }
+
+        // The most the buildings could make per second: every building at full output (as if fully fed), all bonuses included.
+        float MaxPerSecond(Currency asset) { return Production(asset, true); }
+
+        float Production(Currency asset, bool atFullOutput)
         {
             float total = 0;
             foreach (var owned in manager.State.EarnedBuildings)
@@ -1068,7 +1204,7 @@ namespace COMP2165.Clicker
                 var building = owned.Key;
                 if (building.YieldAmount.Currency != asset) continue;
                 // each building's upgrades only touch that building's own output
-                float contribution = building.YieldAmount.Amount * owned.Value * Multiplier * OutputFactor(building);
+                float contribution = building.YieldAmount.Amount * owned.Value * Multiplier * (atFullOutput ? 1f : OutputFactor(building));
                 foreach (var upgrade in manager.State.EarnedUpgrades)
                 {
                     foreach (var perk in upgrade.UpgradePerk)
@@ -1099,7 +1235,7 @@ namespace COMP2165.Clicker
 
         // Active values are highlighted in the accent colour (the palette's text_title colour).
         //   Ladybug       : the golden cookie bonus (gold_multiplier) while it lasts
-        //   Events        : each correct event answer adds a boost; active boosts multiply together
+        //   Event reward  : what a correct event answer pays right now (see EventReward)
         //   Overall bonus : shown as +% (overallBonus 1 = +0%); it applies to all currency generation, clicks included
         string ModifierSummary(bool rich)
         {
@@ -1113,22 +1249,11 @@ namespace COMP2165.Clicker
                     .Append(" (").Append(Mathf.CeilToInt(goldEnd - Time.time)).Append("s left)");
             else text.Append("none");
 
-            int boosts = 0;
-            float boostLeft = 0;
-            for (int i = 0; i < eventBoostEnds.Count; i++)
-            {
-                if (Time.time >= eventBoostEnds[i]) continue;
-                boosts++;
-                boostLeft = Mathf.Max(boostLeft, eventBoostEnds[i] - Time.time);
-            }
-            text.Append("\nEvents: ");
-            if (boosts > 0)
-                text.Append(open).Append('x').Append(Format((float)Math.Min(EventFactor, 1e12))).Append(close)
-                    .Append(" (").Append(boosts).Append(boosts == 1 ? " boost, " : " boosts, ").Append(Mathf.CeilToInt(boostLeft)).Append("s left)");
-            else text.Append("none");
+            // what a correct event answer is worth right now, in the main currency
+            text.Append("\nEvent reward: ").Append(open).Append('+').Append(Format(EventReward(currency))).Append(' ').Append(currency.name).Append(close);
 
             float percent = (overallBonus - 1f) * 100f;
-            text.Append("\nOverall bonus: ");
+            text.Append("\nPests killed bonus: ");
             if (Mathf.Abs(percent) > 0.001f)
                 text.Append(open).Append(percent > 0 ? "+" : string.Empty).Append(percent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");

@@ -97,7 +97,16 @@ namespace COMP2165.Clicker
         public float inputAmount, outputAmount;
     }
     [Serializable] public class UpgradeData { public string id, name, description, tooltip, targetType, targetId, operation, image, costCurrency, unlockCurrency; public float cost, amount, unlockAt; }
-    [Serializable] public class EventData { public string title, description, option1, option2, image, sound, currencyId; public int correctOption; }
+    [Serializable]
+    public class EventData
+    {
+        public string title, description, option1, option2, image, sound, currencyId;
+        public int correctOption;
+        // Optional building changes (Events sheet). A correct answer gives successCount of successBuilding;
+        // a wrong answer, or running out of time, takes failureCount of failureBuilding.
+        public string successBuilding, failureBuilding;
+        public int successCount, failureCount;
+    }
     [Serializable] public class BuildingSave { public string id; public int count; }
     [Serializable] public class CurrencySave { public string id; public float amount, lifetime; }
     [Serializable]

@@ -14,6 +14,7 @@ public class PestHit : MonoBehaviour
     private int textureCount;
     // slider stuff
     public Slider healthDisplay;
+    public Text healthTXT;
     // reward for defeating a pest (currency id from Currencies.csv)
     public string rewardCurrency = "reputation";
     public float rewardAmount = 1;
@@ -68,6 +69,7 @@ public class PestHit : MonoBehaviour
             // slider
             healthDisplay.maxValue = requiredHits;
         }
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
     private void HitPest()

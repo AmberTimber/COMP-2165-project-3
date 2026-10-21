@@ -26,6 +26,8 @@ namespace COMP2165.Clicker
         // Market (StoreItems sheet). buildingMarket is the row template; generated rows are added next to it,
         // under the template's own parent. marketBatchStatus is optional.
         public Text marketBatchStatus;
+        // Optional: a countdown shown on the event panel. When left empty, the countdown is written into eventQueueText instead.
+        public Text eventTimerText;
         // The one big panel behind both the modifiers text and the market rows. Coloured by market_panel in Palette.csv.
         [FormerlySerializedAs("marketPanel")] public Graphic marketModifierPanel;
     }
