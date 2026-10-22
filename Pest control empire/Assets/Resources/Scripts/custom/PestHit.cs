@@ -75,6 +75,14 @@ public class PestHit : MonoBehaviour
         healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
+    // Forgets this pest's saved progress (used by the pause menu's Restart button).
+    public static void ClearSavedProgress()
+    {
+        PlayerPrefs.DeleteKey("hits");
+        PlayerPrefs.DeleteKey("hitsRequired");
+        PlayerPrefs.DeleteKey("texturePos");
+    }
+
     private void HitPest()
     {
         // every click upgrade the player owns makes each click hit harder (see ClickerGame.ClickDamage)

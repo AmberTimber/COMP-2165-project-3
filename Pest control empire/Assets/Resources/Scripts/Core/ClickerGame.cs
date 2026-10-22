@@ -58,6 +58,10 @@ namespace COMP2165.Clicker
         string error, toast;
         float toastUntil, nextTick, nextEvent, nextGold, nextSave, goldEnd;
         float goldBonus = 7, bonusDuration = 20, eventInterval = 35, goldInterval = 50, wrongPenalty = 0.1f, sellRefund = 0.5f, shopReveal = 0.5f;
+        // Settings.csv: reputation bonus per point (as a fraction), its ceiling and floor, and how long a failed event's debuff lasts
+        float reputationPerPoint = 0.01f, reputationMaxBonus = 1f, reputationMaxPenalty = 0.99f, eventDebuffSeconds = 20f;
+        readonly List<float> debuffEnds = new List<float>(); // when each failed-event debuff runs out
+        bool savingBlocked; // set by ResetProgress so nothing writes the old save back
         // custom
         public float overallBonus = 1;
         [Tooltip("Seconds an event stays on screen before it counts as failed. 0 = no time limit.")]
@@ -131,9 +135,13 @@ namespace COMP2165.Clicker
             goldInterval = Setting("gold_interval_seconds", 50);
             wrongPenalty = Setting("wrong_penalty_percent", 10) / 100f;
             eventRewardPercent = Setting("event_multiplier", 100);
+            reputationPerPoint = Setting("reputation_bonus_percent", 1) / 100f;
+            reputationMaxBonus = Setting("reputation_bonus_max_percent", 100) / 100f;
+            reputationMaxPenalty = Setting("reputation_penalty_max_percent", 99) / 100f;
+            eventDebuffSeconds = Setting("event_debuff_interval_seconds", 20);
             sellRefund = Setting("sell_refund_percent", 50) / 100f;
             shopReveal = Setting("shop_reveal_percent", 50) / 100f;
-            if (goldBonus < 1 || eventRewardPercent < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
+            if (goldBonus < 1 || eventRewardPercent < 0 || reputationPerPoint < 0 || reputationMaxBonus < 0 || reputationMaxPenalty < 0 || reputationMaxPenalty > 1 || eventDebuffSeconds < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
             { error = "Check multiplier, duration, interval and penalty values in Settings.csv."; yield break; }
 
             foreach (var row in loaded["Currencies"])
@@ -430,26 +438,36 @@ namespace COMP2165.Clicker
         double GoldenFactor { get { return Time.time < goldEnd ? goldBonus : 1; } }
         float Multiplier { get { return (float)Math.Min(GoldenFactor, 1e12); } }
 
-        // Reputation bonus: +1% of all income for every point of reputation above 0, -1% for every point below 0,
-        // never worse than -50%. Reputation is the currency with the id "reputation".
-        float ReputationFactor
+        // Reputation bonus as a share of base income: reputation_bonus_percent (1 = 1%) for every point above 0 and the same
+        // loss for every point below 0, never above reputation_bonus_max_percent (100) or below -reputation_penalty_max_percent (99).
+        // Reputation is the currency with the id "reputation". Example: 57 points -> +0.57, 250 -> +1.00, -500 -> -0.99.
+        float ReputationBonus
         {
             get
             {
                 Currency asset;
-                if (!currencyAssets.TryGetValue(ReputationId, out asset)) return 1f;
-                float points = Balance(asset);
-                return points >= 0f ? 1f + points / 100f : Mathf.Max(0.5f, 1f + points / 100f);
+                if (!currencyAssets.TryGetValue(ReputationId, out asset)) return 0f;
+                return Mathf.Clamp(Balance(asset) * reputationPerPoint, -reputationMaxPenalty, reputationMaxBonus);
             }
         }
 
-        // The reputation bonus as a plain percentage of base income (+0.57 = +57%, never below -0.5).
-        float ReputationBonus { get { return ReputationFactor - 1f; } }
+        // Every failed event starts a debuff that cuts all income by wrong_penalty_percent for event_debuff_interval_seconds.
+        // Debuffs stack by multiplying (two of them at 25% leave 0.75 x 0.75 = 56% of income).
+        float DebuffFactor
+        {
+            get
+            {
+                float factor = 1f;
+                for (int i = 0; i < debuffEnds.Count; i++)
+                    if (Time.time < debuffEnds[i]) factor *= Mathf.Max(0f, 1f - wrongPenalty);
+                return factor;
+            }
+        }
 
-        // What every unit of base income (buildings and clicks) is multiplied by. The ladybug and pests-killed bonuses
-        // multiply each other; the reputation bonus is kept separate and simply added on top, so it is a share of base
-        // income and never compounds with them. Example: ladybug x2, pests +70%, reputation +57% -> 2 x 1.7 + 0.57 = 3.97.
-        float IncomeMultiplier { get { return Multiplier * overallBonus + ReputationBonus; } }
+        // What every unit of base income (buildings and clicks) is multiplied by. The ladybug and pests-killed bonuses multiply
+        // each other, the reputation bonus is kept separate and added on top, and failed-event debuffs then cut the whole result.
+        // Example: ladybug x2, pests +70%, reputation +57% -> 2 x 1.7 + 0.57 = 3.97, or 2.98 while one 25% debuff is active.
+        float IncomeMultiplier { get { return (Multiplier * overallBonus + ReputationBonus) * DebuffFactor; } }
 
         void Update()
         {
@@ -459,6 +477,7 @@ namespace COMP2165.Clicker
                 return;
             }
             ExpireEvents(); // events nobody answered in time fail
+            for (int i = debuffEnds.Count - 1; i >= 0; i--) if (Time.time >= debuffEnds[i]) debuffEnds.RemoveAt(i);
             if (Time.time >= nextTick)
             {
                 nextTick = Time.time + 1;
@@ -771,6 +790,11 @@ namespace COMP2165.Clicker
                 string takeFrom = EventBuilding(data.failureBuilding);
                 int lost = ChangeBuildings(takeFrom, -data.failureCount);
                 if (lost > 0) message.Append(", -").Append(lost).Append(' ').Append(BuildingName(takeFrom));
+                if (eventDebuffSeconds > 0f && wrongPenalty > 0f)
+                {
+                    debuffEnds.Add(Time.time + eventDebuffSeconds); // a new debuff for every failure
+                    message.Append(", income -").Append(Mathf.RoundToInt(wrongPenalty * 100f)).Append("% for ").Append(Mathf.RoundToInt(eventDebuffSeconds)).Append('s');
+                }
             }
             message.Append('.');
             ShowToast(message.ToString());
@@ -837,9 +861,19 @@ namespace COMP2165.Clicker
             return value.ToString("0.#", CultureInfo.InvariantCulture);
         }
 
+        // Wipes the saved game so the next load starts from zero (used by the pause menu's Restart button).
+        // Saving is switched off first, so the autosave or the quit save can't write the old progress back.
+        public void ResetProgress()
+        {
+            savingBlocked = true;
+            PlayerPrefs.DeleteKey("COMP2165_" + Label("game_id", "clicker"));
+            PlayerPrefs.DeleteKey("overallBonus");
+            PlayerPrefs.Save();
+        }
+
         void SaveProgress()
         {
-            if (manager == null) return;
+            if (manager == null || savingBlocked) return;
             var save = new ClickerSave { money = Money, lifetime = Lifetime };
             foreach (var row in currencyDefinitions)
             {
@@ -1338,11 +1372,25 @@ namespace COMP2165.Clicker
                 text.Append(open).Append(percent > 0 ? "+" : string.Empty).Append(percent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");
 
-            float reputationPercent = (ReputationFactor - 1f) * 100f;
+            float reputationPercent = ReputationBonus * 100f;
             text.Append("\nReputation bonus: ");
             if (Mathf.Abs(reputationPercent) > 0.001f)
                 text.Append(open).Append(reputationPercent > 0 ? "+" : string.Empty).Append(reputationPercent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");
+
+            int debuffs = 0;
+            float debuffLeft = 0;
+            for (int i = 0; i < debuffEnds.Count; i++)
+            {
+                if (Time.time >= debuffEnds[i]) continue;
+                debuffs++;
+                debuffLeft = Mathf.Max(debuffLeft, debuffEnds[i] - Time.time);
+            }
+            text.Append("\nEvent debuff: ");
+            if (debuffs > 0)
+                text.Append(open).Append('-').Append(Mathf.RoundToInt((1f - DebuffFactor) * 100f)).Append('%').Append(close)
+                    .Append(" (").Append(debuffs).Append(debuffs == 1 ? " active, " : " stacked, ").Append(Mathf.CeilToInt(debuffLeft)).Append("s left)");
+            else text.Append("none");
 
             float total = IncomeMultiplier;
             bool boosted = Mathf.Abs(total - 1f) > 0.001f;

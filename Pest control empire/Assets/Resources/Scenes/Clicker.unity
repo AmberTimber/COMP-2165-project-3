@@ -2329,6 +2329,8 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 6da3c4695f35fa64285f7fab4bb31103, type: 3}
   - {fileID: 2800000, guid: a4a65473790b82747b9571185446524c, type: 3}
   - {fileID: 8400000, guid: bbf8600ae615e934480c784a36edd1e9, type: 2}
+  - {fileID: 2800000, guid: 4b5e2563c5b02c94b99908d12e00883c, type: 3}
+  - {fileID: 2800000, guid: 0f699c491b0b7124e9a96fb064f48b37, type: 3}
   healthDisplay: {fileID: 1976780728}
   healthTXT: {fileID: 1122675341}
   rewardCurrency: reputation
@@ -4483,7 +4485,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6462662380098875372, guid: f64e62fa700313340ae7468c6a12a627, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -208
+      value: -170
       objectReference: {fileID: 0}
     - target: {fileID: 6523584600862000016, guid: f64e62fa700313340ae7468c6a12a627, type: 3}
       propertyPath: m_SizeDelta.x
