@@ -47,18 +47,19 @@ public class PestHit : MonoBehaviour
         healthDisplay.maxValue = requiredHits;
         healthDisplay.minValue = 0;
         healthDisplay.value = hitCount;
-        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
     // Update is called once per frame
     void Update()
     {
         if (hitCount >= requiredHits)
         {
+            int overflow = hitCount - requiredHits; // damage beyond the kill carries over to the next pest
             gameDataRef.overallBonus += 0.1f;
             gameDataRef.AddCurrency(rewardCurrency, rewardAmount); // each defeated pest earns reputation
-            requiredHits *= 3;
-            hitCount = 0;
+            requiredHits = (int)System.Math.Min(requiredHits * 3L, 1000000000L);
+            hitCount = overflow;
             PlayerPrefs.SetInt("hitsRequired", requiredHits);
+            PlayerPrefs.SetInt("hits", hitCount);
             // texture
             textureCount++;
             if (textureCount > textures.Length - 1)
@@ -69,14 +70,16 @@ public class PestHit : MonoBehaviour
             PlayerPrefs.SetInt("texturePos", textureCount);
             // slider
             healthDisplay.maxValue = requiredHits;
+            healthDisplay.value = hitCount;
         }
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
     private void HitPest()
     {
-        hitCount++;
+        // every click upgrade the player owns makes each click hit harder (see ClickerGame.ClickDamage)
+        hitCount += gameDataRef != null ? Mathf.Max(1, gameDataRef.ClickDamage) : 1;
         PlayerPrefs.SetInt("hits", hitCount);
         healthDisplay.value = hitCount;
-        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 }

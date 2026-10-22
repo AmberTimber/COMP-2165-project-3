@@ -35,6 +35,7 @@ chef icon: https://www.instagram.com/gordongram/
 hunter icon: https://www.imdb.com/title/tt0083944/?ref_=mv_close
 
 mercenary icon: https://villains.fandom.com/wiki/HUNK
+factory icon: https://www.reddit.com/r/Factoriohno/comments/xutpkt/when_the_factory_must_grow/
 
 upgrade icons:
 squad formation upgrade icon: https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/

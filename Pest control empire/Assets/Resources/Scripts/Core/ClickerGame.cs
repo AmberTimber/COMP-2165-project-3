@@ -69,6 +69,8 @@ namespace COMP2165.Clicker
         const string GoldenDisplayName = "Ladybug";
         // In the Events sheet's Success Building / Failure Building columns, this word means "one building the player owns, picked at random".
         const string RandomBuilding = "random";
+        // The currency (by id) whose balance drives the reputation bonus and is reduced when events fail.
+        const string ReputationId = "reputation";
         // Highlight colour for active modifiers; taken from the palette's text_title colour after ClickerPalette.Apply
         Color modifierAccent = new Color(1f, 0.92f, 0.2f);
 
@@ -182,6 +184,8 @@ namespace COMP2165.Clicker
                 int correctOption;
                 if (!int.TryParse(Csv.Get(row, "Correct Option"), NumberStyles.Integer, CultureInfo.InvariantCulture, out correctOption) || correctOption < 0 || correctOption > 2)
                 { error = "Every event needs Correct Option 0 (random), 1, or 2."; yield break; }
+                bool lossIsPercent;
+                float repLoss = Csv.Amount(row, "Reputation Loss", out lossIsPercent);
                 var item = new EventData
                 {
                     title = Csv.Get(row, "Event Title"),
@@ -196,7 +200,10 @@ namespace COMP2165.Clicker
                     successBuilding = Csv.Get(row, "Success Building"),
                     successCount = Mathf.RoundToInt(Csv.Number(row, "Success Building Count", 1)),
                     failureBuilding = Csv.Get(row, "Failure Building"),
-                    failureCount = Mathf.RoundToInt(Csv.Number(row, "Failure Building Count", 1))
+                    failureCount = Mathf.RoundToInt(Csv.Number(row, "Failure Building Count", 1)),
+                    // reputation lost on every failure: points, or a percent of current reputation when the cell ends in %
+                    reputationLoss = repLoss,
+                    reputationLossIsPercent = lossIsPercent
                 };
                 if (item.successCount < 0 || item.failureCount < 0) { error = "Events.csv: building counts can't be negative (event '" + item.title + "')."; yield break; }
                 events.Add(item);
@@ -352,6 +359,9 @@ namespace COMP2165.Clicker
             }
             foreach (var row in events) if (!currencyAssets.ContainsKey(row.currencyId)) { error = "Unknown event currency: " + row.currencyId; return; }
             foreach (var row in events)
+                if (row.reputationLoss > 0 && !currencyAssets.ContainsKey(ReputationId))
+                { error = "Events.csv uses Reputation Loss, but Currencies.csv has no '" + ReputationId + "' currency."; return; }
+            foreach (var row in events)
             {
                 if (!string.IsNullOrEmpty(row.successBuilding))
                 {
@@ -388,13 +398,58 @@ namespace COMP2165.Clicker
         {
             Currency asset;
             if (!ready || amount == 0 || string.IsNullOrEmpty(id) || !currencyAssets.TryGetValue(id, out asset)) return false;
+            GrantCurrency(asset, amount);
+            return true;
+        }
+
+        void GrantCurrency(Currency asset, float amount)
+        {
             manager.State.CurrencyCurrentTotals[asset] = Mathf.Max(0, Balance(asset) + amount);
             if (amount > 0) manager.State.CurrencyHistoricalTotals[asset] = Historical(asset) + amount;
-            return true;
+        }
+
+        // How hard one click hits a pest (used by PestHit): the click multiplier from every click upgrade owned, never below 1.
+        // Multiply perks multiply it and Add perks add to the click amount, the same way they change what a click earns.
+        public int ClickDamage
+        {
+            get
+            {
+                if (!ready) return 1;
+                float start = currencyDefinitions[0].clickAmount > 0 ? currencyDefinitions[0].clickAmount : 1f;
+                float value = start;
+                foreach (var upgrade in manager.State.EarnedUpgrades)
+                    foreach (var perk in upgrade.UpgradePerk)
+                    {
+                        if (perk.Type != UpgradeType.Clickable) continue;
+                        value = perk.Operation == Operation.Add ? value + perk.Amount : value * perk.Amount;
+                    }
+                return Mathf.Max(1, Mathf.RoundToInt(value / start));
+            }
         }
         // Golden cookie bonus while it lasts, otherwise 1.
         double GoldenFactor { get { return Time.time < goldEnd ? goldBonus : 1; } }
         float Multiplier { get { return (float)Math.Min(GoldenFactor, 1e12); } }
+
+        // Reputation bonus: +1% of all income for every point of reputation above 0, -1% for every point below 0,
+        // never worse than -50%. Reputation is the currency with the id "reputation".
+        float ReputationFactor
+        {
+            get
+            {
+                Currency asset;
+                if (!currencyAssets.TryGetValue(ReputationId, out asset)) return 1f;
+                float points = Balance(asset);
+                return points >= 0f ? 1f + points / 100f : Mathf.Max(0.5f, 1f + points / 100f);
+            }
+        }
+
+        // The reputation bonus as a plain percentage of base income (+0.57 = +57%, never below -0.5).
+        float ReputationBonus { get { return ReputationFactor - 1f; } }
+
+        // What every unit of base income (buildings and clicks) is multiplied by. The ladybug and pests-killed bonuses
+        // multiply each other; the reputation bonus is kept separate and simply added on top, so it is a share of base
+        // income and never compounds with them. Example: ladybug x2, pests +70%, reputation +57% -> 2 x 1.7 + 0.57 = 3.97.
+        float IncomeMultiplier { get { return Multiplier * overallBonus + ReputationBonus; } }
 
         void Update()
         {
@@ -424,7 +479,7 @@ namespace COMP2165.Clicker
         // output and burns only what it could pay for; one that can't pay at all is idle for the tick.
         void RunProductionTick()
         {
-            float boost = Multiplier * overallBonus;
+            float boost = IncomeMultiplier;
             var originals = new float[buildings.Count];
             var stock = new Dictionary<Currency, float>(); // working balances of the currencies being consumed
             for (int i = 0; i < buildings.Count; i++)
@@ -516,7 +571,7 @@ namespace COMP2165.Clicker
             {
                 if (row.clickAmount <= 0) continue;
                 var source = clickAssets[row.id];
-                source.Amount = row.clickAmount * Multiplier * overallBonus; // bonus for killing new tier of pests
+                source.Amount = row.clickAmount * IncomeMultiplier; // bonus for killing new tier of pests
                 manager.Click(source);
                 source.Amount = row.clickAmount;
             }
@@ -684,8 +739,15 @@ namespace COMP2165.Clicker
             if (success)
             {
                 float reward = EventReward(eventCurrency);
-                AddCurrency(data.currencyId, reward);
-                message.Append('+').Append(Format(reward)).Append(' ').Append(eventCurrency.name);
+                var paidIn = eventCurrency;
+                if (reward <= 0f && eventCurrency != currency)
+                {
+                    // none of that resource is being produced, so the reward would be 0: pay in the main currency (cash) instead
+                    paidIn = currency;
+                    reward = EventReward(currency);
+                }
+                if (reward > 0f) GrantCurrency(paidIn, reward);
+                message.Append('+').Append(Format(reward)).Append(' ').Append(paidIn.name);
                 string giveTo = EventBuilding(data.successBuilding);
                 int gained = ChangeBuildings(giveTo, data.successCount);
                 if (gained > 0) message.Append(", +").Append(gained).Append(' ').Append(BuildingName(giveTo));
@@ -693,9 +755,19 @@ namespace COMP2165.Clicker
             else
             {
                 float balance = Balance(eventCurrency);
-                float loss = Mathf.Min(balance, balance * wrongPenalty);
+                float loss = Mathf.Max(0f, Mathf.Min(balance, balance * wrongPenalty)); // nothing is lost from a balance of zero or less
                 manager.State.CurrencyCurrentTotals[eventCurrency] = balance - loss;
                 message.Append("Lost ").Append(Format(loss)).Append(' ').Append(eventCurrency.name);
+                Currency reputation;
+                if (currencyAssets.TryGetValue(ReputationId, out reputation))
+                {
+                    float reputationLost = ReputationLoss(data, reputation);
+                    if (reputationLost > 0f)
+                    {
+                        manager.State.CurrencyCurrentTotals[reputation] = Balance(reputation) - reputationLost; // may go below zero
+                        message.Append(", -").Append(Format(reputationLost)).Append(' ').Append(reputation.name);
+                    }
+                }
                 string takeFrom = EventBuilding(data.failureBuilding);
                 int lost = ChangeBuildings(takeFrom, -data.failureCount);
                 if (lost > 0) message.Append(", -").Append(lost).Append(' ').Append(BuildingName(takeFrom));
@@ -703,6 +775,14 @@ namespace COMP2165.Clicker
             message.Append('.');
             ShowToast(message.ToString());
             PlaySound(success ? "success" : "failure");
+        }
+
+        // Reputation an event takes when it fails: a fixed number of points, or a percent of the current reputation
+        // (a percent never takes anything from zero or less).
+        float ReputationLoss(EventData data, Currency reputation)
+        {
+            if (data.reputationLoss <= 0f) return 0f;
+            return data.reputationLossIsPercent ? Mathf.Max(0f, Balance(reputation)) * data.reputationLoss / 100f : data.reputationLoss;
         }
 
         // What a correct answer pays in a currency: event_multiplier (a percent) of the most the buildings could make
@@ -1204,7 +1284,7 @@ namespace COMP2165.Clicker
                 var building = owned.Key;
                 if (building.YieldAmount.Currency != asset) continue;
                 // each building's upgrades only touch that building's own output
-                float contribution = building.YieldAmount.Amount * owned.Value * Multiplier * (atFullOutput ? 1f : OutputFactor(building));
+                float contribution = building.YieldAmount.Amount * owned.Value * IncomeMultiplier * (atFullOutput ? 1f : OutputFactor(building));
                 foreach (var upgrade in manager.State.EarnedUpgrades)
                 {
                     foreach (var perk in upgrade.UpgradePerk)
@@ -1223,7 +1303,7 @@ namespace COMP2165.Clicker
                     total = perk.Operation == Operation.Add ? total + perk.Amount : total * perk.Amount;
                 }
             }
-            return total * overallBonus; // ensures that total adds modified overall bonus variable to it
+            return total;
         }
 
         // The modifiers panel: the ladybug (golden cookie) bonus, event boosts and the overall bonus, plus their combined effect.
@@ -1258,7 +1338,13 @@ namespace COMP2165.Clicker
                 text.Append(open).Append(percent > 0 ? "+" : string.Empty).Append(percent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");
 
-            float total = Multiplier * overallBonus;
+            float reputationPercent = (ReputationFactor - 1f) * 100f;
+            text.Append("\nReputation bonus: ");
+            if (Mathf.Abs(reputationPercent) > 0.001f)
+                text.Append(open).Append(reputationPercent > 0 ? "+" : string.Empty).Append(reputationPercent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
+            else text.Append("+0%");
+
+            float total = IncomeMultiplier;
             bool boosted = Mathf.Abs(total - 1f) > 0.001f;
             text.Append("\nTotal production: ").Append(boosted ? open : string.Empty).Append('x').Append(Format(total)).Append(boosted ? close : string.Empty);
             return text.ToString();

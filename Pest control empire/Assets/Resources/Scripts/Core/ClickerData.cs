@@ -58,6 +58,16 @@ namespace COMP2165.Clicker
             return float.TryParse(Get(row, key), NumberStyles.Float, CultureInfo.InvariantCulture, out value) ? value : fallback;
         }
 
+        // Reads "5" as 5 points, or "10%" as 10 percent (percent = true). Blank, negative or unreadable cells give 0.
+        public static float Amount(Dictionary<string, string> row, string key, out bool percent)
+        {
+            string text = Get(row, key);
+            percent = text.EndsWith("%");
+            if (percent) text = text.Substring(0, text.Length - 1).Trim();
+            float value;
+            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value > 0f ? value : 0f;
+        }
+
         // Reads a share and returns it as 0..1. Accepts a fraction (0.5), a percent number (50) or Excel's percent text ("50%").
         // Plain numbers above 1 count as percents; exactly 1 means 100%. Blank or unreadable cells give the fallback.
         public static float Fraction(Dictionary<string, string> row, string key, float fallback = 0)
@@ -106,6 +116,10 @@ namespace COMP2165.Clicker
         // a wrong answer, or running out of time, takes failureCount of failureBuilding.
         public string successBuilding, failureBuilding;
         public int successCount, failureCount;
+        // Reputation taken every time the event fails (wrong answer or timeout): a number of points, or a percent of the
+        // current reputation when the sheet cell ends in %. 0 = none.
+        public float reputationLoss;
+        public bool reputationLossIsPercent;
     }
     [Serializable] public class BuildingSave { public string id; public int count; }
     [Serializable] public class CurrencySave { public string id; public float amount, lifetime; }
