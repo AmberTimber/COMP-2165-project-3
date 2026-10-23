@@ -14,7 +14,7 @@
 "wrong_penalty_percent","25"
 "music_volume","0.4"
 "sound_volume","0.7"
-"event_multiplier","100"
+"event_multiplier","50"
 "reputation_bonus_percent","0.5"
 "reputation_bonus_max_percent","100"
 "reputation_penalty_max_percent","99"

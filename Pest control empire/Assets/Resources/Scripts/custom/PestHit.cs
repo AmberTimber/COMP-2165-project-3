@@ -18,6 +18,7 @@ public class PestHit : MonoBehaviour
     // reward for defeating a pest (currency id from Currencies.csv)
     public string rewardCurrency = "reputation";
     public float rewardAmount = 1;
+    public Color newColor;
 
 
     private void OnEnable()
@@ -47,6 +48,12 @@ public class PestHit : MonoBehaviour
         healthDisplay.maxValue = requiredHits;
         healthDisplay.minValue = 0;
         healthDisplay.value = hitCount;
+        // text
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
+        // color
+        newColor = GetColor("texturePos", Color.white);
+        pestImg.color = newColor;
+
     }
     // Update is called once per frame
     void Update()
@@ -65,6 +72,9 @@ public class PestHit : MonoBehaviour
             if (textureCount > textures.Length - 1)
             {
                 textureCount = 0;
+                newColor = Random.ColorHSV();
+                SetColor("NewColor", newColor);
+                pestImg.color = newColor;
             }
             pestImg.texture = textures[textureCount];
             PlayerPrefs.SetInt("texturePos", textureCount);
@@ -72,7 +82,6 @@ public class PestHit : MonoBehaviour
             healthDisplay.maxValue = requiredHits;
             healthDisplay.value = hitCount;
         }
-        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
     // Forgets this pest's saved progress (used by the pause menu's Restart button).
@@ -89,5 +98,28 @@ public class PestHit : MonoBehaviour
         hitCount += gameDataRef != null ? Mathf.Max(1, gameDataRef.ClickDamage) : 1;
         PlayerPrefs.SetInt("hits", hitCount);
         healthDisplay.value = hitCount;
+        healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
+    }
+
+    // Save Color
+    public static void SetColor(string key, Color color)
+    {
+        string hex = ColorUtility.ToHtmlStringRGBA(color);
+        PlayerPrefs.SetString(key, hex);
+    }
+
+    // Load Color
+    public static Color GetColor(string key, Color defaultColor)
+    {
+        if (!PlayerPrefs.HasKey(key))
+            return defaultColor;
+
+        string hex = PlayerPrefs.GetString(key);
+        if (ColorUtility.TryParseHtmlString("#" + hex, out Color loadedColor))
+        {
+            return loadedColor;
+        }
+
+        return defaultColor;
     }
 }

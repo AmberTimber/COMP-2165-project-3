@@ -1,3 +1,3 @@
 id,name,description,InputCurrency,OutputCurrency,inputAmount,OutputAmount,image,tooltip
 cash4pesticide,cash to pesticide,Buy pesticide supplies,cash,resources,10,1,cash4pesticide,Buy pesticide supplies
-pest4uranium,pesticide to uranium,The ultimate pesticide,resources,uranium,1000,1,pest4uranium,The ultimate pesticide exchange
+pest4uranium,pesticide to uranium,The ultimate pesticide,resources,uranium,100000,1,pest4uranium,The ultimate pesticide exchange

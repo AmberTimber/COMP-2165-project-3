@@ -562,19 +562,35 @@ namespace COMP2165.Clicker
             return total;
         }
 
-        string BuildingTooltip(BuildingData data, int count, bool unlocked, Currency unlockCurrency, bool starved)
+        // What ONE building of this kind makes per second with the building upgrades the player owns, fully fed.
+        // (The ladybug, pests-killed, reputation and debuff multipliers apply on top of this and aren't included.)
+        float EarnPerSecond(Building building)
         {
-            bool hasText = !string.IsNullOrWhiteSpace(data.tooltip);
-            Currency input;
-            bool consumes = data.consumeable > 0 && consumeAssets.TryGetValue(data.id, out input);
-            if (!hasText && !consumes) return string.Empty;
+            float value = building.YieldAmount.Amount;
+            foreach (var upgrade in manager.State.EarnedUpgrades)
+                foreach (var perk in upgrade.UpgradePerk)
+                {
+                    if (perk.TargetBuilding != building) continue;
+                    value = perk.Operation == Operation.Add ? value + perk.Amount : value * perk.Amount;
+                }
+            return value;
+        }
+
+        // e.g. "1.5 Money/s each"
+        string EarnText(Building building)
+        {
+            return Format(EarnPerSecond(building)) + " " + building.YieldAmount.Currency.name + "/s each";
+        }
+
+        string BuildingTooltip(BuildingData data, bool unlocked, Currency unlockCurrency, bool starved)
+        {
             var text = new StringBuilder(data.name);
-            if (hasText) text.Append('\n').Append(data.tooltip);
-            if (consumes)
+            if (!string.IsNullOrWhiteSpace(data.tooltip)) text.Append('\n').Append(data.tooltip);
+            text.Append("\nEarns ").Append(EarnText(buildingAssets[data.id]));
+            Currency input;
+            if (data.consumeable > 0 && consumeAssets.TryGetValue(data.id, out input))
             {
-                input = consumeAssets[data.id];
                 text.Append("\nConsumes ").Append(Format(data.consumeable)).Append(' ').Append(input.name).Append("/s each");
-                if (count > 0) text.Append(" (").Append(Format(data.consumeable * count)).Append("/s total)");
                 int floorPercent = Mathf.RoundToInt(data.productionWithoutConsumption * 100f);
                 text.Append(floorPercent > 0 ? "\nWithout it: " + floorPercent + "% output" : "\nStops without it");
                 if (starved) text.Append("\nNot enough ").Append(input.name).Append(" - producing ").Append(Mathf.RoundToInt(OutputFactor(buildingAssets[data.id]) * 100)).Append("%");
@@ -684,11 +700,6 @@ namespace COMP2165.Clicker
                 .Append(" for ").Append(Format(data.outputAmount)).Append(' ').Append(output.name);
             text.Append("\nThis buy: ").Append(Format(cost)).Append(' ').Append(input.name)
                 .Append(" for ").Append(Format(gain)).Append(' ').Append(output.name);
-            float need = ConsumptionDemandPerSecond(output);
-            if (need > 0)
-                text.Append("\nBuildings need ").Append(Format(need)).Append(' ').Append(output.name)
-                    .Append("/s; this covers ").Append(Format(gain / need)).Append("s");
-            text.Append("\nYou have ").Append(Format(Balance(output))).Append(' ').Append(output.name);
             return text.ToString();
         }
 
@@ -1223,7 +1234,7 @@ namespace COMP2165.Clicker
                 row.icon.texture = Image(data.image) ?? Icon(data.id, data.id);
                 bool starved = count > 0 && data.consumeable > 0 && Satisfaction(asset) < 0.999f;
                 row.title.text = data.name + "  ×" + count + (starved ? "  (Underutilized)" : "");
-                row.tooltipText = BuildingTooltip(data, count, unlocked, unlockCurrency, starved);
+                row.tooltipText = BuildingTooltip(data, unlocked, unlockCurrency, starved);
                 row.action.interactable = unlocked && (sellingBuildings ? count >= buildingBatch : Balance(costCurrency) >= value);
                 row.actionText.text = !unlocked ? "LOCKED" : sellingBuildings && count < buildingBatch ? "NEED " + buildingBatch : (sellingBuildings ? "SELL\n" : "BUY\n") + Format(value) + " " + costCurrency.name;
             }
@@ -1349,7 +1360,6 @@ namespace COMP2165.Clicker
 
         // Active values are highlighted in the accent colour (the palette's text_title colour).
         //   Ladybug       : the golden cookie bonus (gold_multiplier) while it lasts
-        //   Event reward  : what a correct event answer pays right now (see EventReward)
         //   Overall bonus : shown as +% (overallBonus 1 = +0%); it applies to all currency generation, clicks included
         string ModifierSummary(bool rich)
         {
@@ -1363,8 +1373,6 @@ namespace COMP2165.Clicker
                     .Append(" (").Append(Mathf.CeilToInt(goldEnd - Time.time)).Append("s left)");
             else text.Append("none");
 
-            // what a correct event answer is worth right now, in the main currency
-            text.Append("\nEvent reward: ").Append(open).Append('+').Append(Format(EventReward(currency))).Append(' ').Append(currency.name).Append(close);
 
             float percent = (overallBonus - 1f) * 100f;
             text.Append("\nPests killed bonus: ");
