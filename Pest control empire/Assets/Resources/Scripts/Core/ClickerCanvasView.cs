@@ -30,5 +30,9 @@ namespace COMP2165.Clicker
         public Text eventTimerText;
         // The one big panel behind both the modifiers text and the market rows. Coloured by market_panel in Palette.csv.
         [FormerlySerializedAs("marketPanel")] public Graphic marketModifierPanel;
+        // Welcome-back panel shown after the player was away (offline income). All optional: without the panel, a toast is shown instead.
+        public GameObject offlinePanel;
+        public Text offlineTimeText, offlineMoneyText, offlinePesticideText;
+        public Button offlineCloseButton;
     }
 }

@@ -54,6 +54,9 @@ faster loading: https://knowyourmeme.com/memes/white-rabbit-pointing-at-a-clock
 AI logistics: https://pixar.fandom.com/wiki/AUTO
 Academic research: https://researchers.mq.edu.au/en/projects/
 squad formation upgrade icon: https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/
+big boss: https://unsplash.com/photos/a-smiling-man-in-a-suit-stands-in-an-office-P3i8MtIT1ug
+worker motivation: https://knowyourmeme.com/memes/running-away-balloon
+
 
 market icons:
 pesticide exchange icon: https://billmoyers.com/2015/01/23/money-harmful-chemicals-politics/
@@ -72,11 +75,14 @@ quality: https://twitterx.fandom.com/wiki/X_verification_line
 fire: https://nypost.com/2021/04/28/disaster-girl-selling-original-photo-behind-viral-meme/
 hire: https://half-life.fandom.com/wiki/The_G-Man
 protest: https://en.wikipedia.org/wiki/I_Have_a_Dream
+competitor: https://unsplash.com/photos/a-close-up-of-a-monopoly-board-game-EfGa85RIkTE
 
 sounds:
 ladybug/golden cookie sfx: https://youtu.be/JJClRjDYFL0
 buy: https://www.myinstants.com/en/instant/terraria-coins-71682/
 Looping background music: "JungleBook" from the game "Maplestory" by Nexon and Wizet, Composed by: 이준희 & LedZeper, from https://youtu.be/sAor5Hqd640. Used a youtube to WAV conversion tool for playback.
+correct answer event: https://www.myinstants.com/en/instant/correct-ding/
+failure event: https://www.myinstants.com/en/instant/dota-sad-trombone-70107/
 
 pest icons:
 blastcrawler: https://zenless-zone-zero.fandom.com/wiki/Blastcrawler

@@ -53,7 +53,7 @@ namespace COMP2165.Clicker
         Texture2D fallbackCookie, fallbackGold;
         string spriteSheetPath;
         int spriteTileSize = 48;
-        bool ready, eventOpen, goldVisible, sellingBuildings;
+        bool ready, goldVisible, sellingBuildings;
         int buildingBatch = 1;
         string error, toast;
         float toastUntil, nextTick, nextEvent, nextGold, nextSave, goldEnd;
@@ -62,6 +62,13 @@ namespace COMP2165.Clicker
         float reputationPerPoint = 0.01f, reputationMaxBonus = 1f, reputationMaxPenalty = 0.99f, eventDebuffSeconds = 20f;
         readonly List<float> debuffEnds = new List<float>(); // when each failed-event debuff runs out
         bool savingBlocked; // set by ResetProgress so nothing writes the old save back
+        // Offline income (Settings.csv offline_income_percent / offline_max_hours): the share of its normal rate the empire keeps
+        // earning and consuming while the game isn't running, and the longest absence that counts (0 = no limit)
+        float offlinePercent = 50f, offlineMaxHours = 24f;
+        [Tooltip("Absences shorter than this many seconds earn nothing (quick restarts).")]
+        public float offlineMinimumSeconds = 60f;
+        [Tooltip("Currency id (Currencies.csv) reported as 'used' on the welcome-back panel. If it isn't found, the non-main currency the buildings burned most is shown instead.")]
+        public string pesticideCurrencyId = "pesticides";
         // custom
         public float overallBonus = 1;
         [Tooltip("Seconds an event stays on screen before it counts as failed. 0 = no time limit.")]
@@ -139,9 +146,11 @@ namespace COMP2165.Clicker
             reputationMaxBonus = Setting("reputation_bonus_max_percent", 100) / 100f;
             reputationMaxPenalty = Setting("reputation_penalty_max_percent", 99) / 100f;
             eventDebuffSeconds = Setting("event_debuff_interval_seconds", 20);
+            offlinePercent = Setting("offline_income_percent", 50);
+            offlineMaxHours = Setting("offline_max_hours", 24);
             sellRefund = Setting("sell_refund_percent", 50) / 100f;
             shopReveal = Setting("shop_reveal_percent", 50) / 100f;
-            if (goldBonus < 1 || eventRewardPercent < 0 || reputationPerPoint < 0 || reputationMaxBonus < 0 || reputationMaxPenalty < 0 || reputationMaxPenalty > 1 || eventDebuffSeconds < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
+            if (goldBonus < 1 || eventRewardPercent < 0 || reputationPerPoint < 0 || reputationMaxBonus < 0 || reputationMaxPenalty < 0 || reputationMaxPenalty > 1 || eventDebuffSeconds < 0 || offlinePercent < 0 || offlineMaxHours < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
             { error = "Check multiplier, duration, interval and penalty values in Settings.csv."; yield break; }
 
             foreach (var row in loaded["Currencies"])
@@ -279,6 +288,7 @@ namespace COMP2165.Clicker
             shopTooltip = ClickerTooltip.Ensure(ui);
             if (loaded["Palette"].Count > 0) ClickerPalette.Apply(ui, loaded["Palette"]);
             if (ui.money != null) modifierAccent = ui.money.color; // money uses the text_title palette colour
+            ApplyOfflineProgress(); // pay out what the empire made while the game wasn't running
             ready = true;
             BuildShopRows();
             RefreshCanvas();
@@ -484,7 +494,7 @@ namespace COMP2165.Clicker
                 RunProductionTick();
             }
             if (Time.time >= nextEvent && events.Count > 0)
-            { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); eventOpen = true; nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
+            { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
             if (Time.time >= nextGold && !goldVisible)
             { goldVisible = true; nextGold = Time.time + goldInterval; }
             if (Time.time >= nextSave) { SaveProgress(); nextSave = Time.time + 15; }
@@ -492,13 +502,14 @@ namespace COMP2165.Clicker
             RefreshModifiers();
         }
 
-        // One production second.
+        // One production tick. seconds = how much full-rate activity it stands for (1 for a live tick; offline progress
+        // uses bigger steps). consumedLog, when given, collects how much of each currency the buildings burned.
         // Buildings with consumeable > 0 pay for their input first (served in sheet order, so earlier rows win when
         // several buildings share a currency). A building that can only partly pay runs at that fraction of its
         // output and burns only what it could pay for; one that can't pay at all is idle for the tick.
-        void RunProductionTick()
+        void RunProductionTick(float seconds = 1f, Dictionary<Currency, float> consumedLog = null)
         {
-            float boost = IncomeMultiplier;
+            float boost = IncomeMultiplier * seconds;
             var originals = new float[buildings.Count];
             var stock = new Dictionary<Currency, float>(); // working balances of the currencies being consumed
             for (int i = 0; i < buildings.Count; i++)
@@ -513,9 +524,15 @@ namespace COMP2165.Clicker
                 {
                     float available;
                     if (!stock.TryGetValue(input, out available)) available = Balance(input);
-                    float demand = row.consumeable * count;
+                    float demand = row.consumeable * count * seconds;
                     fed = Mathf.Clamp01(available / demand);
                     stock[input] = available - demand * fed;
+                    if (consumedLog != null)
+                    {
+                        float burned;
+                        consumedLog.TryGetValue(input, out burned);
+                        consumedLog[input] = burned + demand * fed;
+                    }
                 }
                 // fed = share of its input it could pay for (this is what it burns). Output runs from the sheet's
                 // productionW/Oconsumption share when it paid for nothing, up to 100% when fully fed.
@@ -743,7 +760,6 @@ namespace COMP2165.Clicker
                 expired = true;
             }
             if (!expired) return;
-            if (eventQueue.Count == 0) eventOpen = false;
             SaveProgress();
         }
 
@@ -755,7 +771,6 @@ namespace COMP2165.Clicker
             int choice = current.flipped ? 3 - side : side;
             eventQueue.RemoveAt(eventQueue.Count - 1);
             FinishEvent(current.data, choice == current.correct, choice == current.correct ? "Good call!" : "Wrong call.");
-            if (eventQueue.Count == 0) eventOpen = false;
             SaveProgress();
         }
 
@@ -879,6 +894,7 @@ namespace COMP2165.Clicker
             savingBlocked = true;
             PlayerPrefs.DeleteKey("COMP2165_" + Label("game_id", "clicker"));
             PlayerPrefs.DeleteKey("overallBonus");
+            PlayerPrefs.DeleteKey(LastSeenKey);
             PlayerPrefs.Save();
         }
 
@@ -896,6 +912,7 @@ namespace COMP2165.Clicker
             foreach (var row in upgrades) if (manager.State.EarnedUpgrades.Contains(upgradeAssets[row.id])) save.upgrades.Add(row.id);
             PlayerPrefs.SetString("COMP2165_" + Label("game_id", "clicker"), JsonUtility.ToJson(save));
             PlayerPrefs.SetFloat("overallBonus", overallBonus);
+            PlayerPrefs.SetString(LastSeenKey, DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture)); // when the player was last here
             PlayerPrefs.Save();
         }
 
@@ -927,7 +944,72 @@ namespace COMP2165.Clicker
             catch (Exception ex) { Debug.LogWarning("Could not load saved progress: " + ex.Message); }
         }
 
-        void OnApplicationPause(bool paused) { if (paused && ready) SaveProgress(); }
+        // ---- Offline progress -----------------------------------------------------------------------------------
+        // While the game isn't running, the empire keeps working at offline_income_percent of its normal rate: buildings earn
+        // and burn their consumed currencies by the same rules as a live tick (including running short of pesticides), for up
+        // to offline_max_hours. It runs on start-up and when the app comes back from being paused, then reports what happened.
+        string LastSeenKey { get { return "COMP2165_lastSeen_" + Label("game_id", "clicker"); } }
+
+        void ApplyOfflineProgress()
+        {
+            if (offlinePercent <= 0f || savingBlocked) return;
+            long ticks;
+            if (!long.TryParse(PlayerPrefs.GetString(LastSeenKey, ""), NumberStyles.Integer, CultureInfo.InvariantCulture, out ticks)
+                || ticks <= 0 || ticks > DateTime.UtcNow.Ticks) return;   // never seen before, or the clock went backwards
+            double away = (DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds;
+            if (away < offlineMinimumSeconds) return;
+            double counted = offlineMaxHours > 0f ? Math.Min(away, offlineMaxHours * 3600.0) : away;
+
+            int steps = Mathf.Clamp(Mathf.CeilToInt((float)counted / 60f), 1, 600);
+            float chunk = (float)counted / steps * (offlinePercent / 100f); // seconds of full-rate work per step
+            float earnedBefore = Historical(currency);
+            var burnedLog = new Dictionary<Currency, float>();
+            for (int i = 0; i < steps; i++) RunProductionTick(chunk, burnedLog);
+            float earned = Historical(currency) - earnedBefore;
+
+            Currency pesticide;
+            if (!currencyAssets.TryGetValue(pesticideCurrencyId, out pesticide))
+            {
+                // id renamed or mistyped: report whichever non-main currency the buildings burned most
+                float most = 0f;
+                foreach (var pair in burnedLog) if (pair.Key != currency && pair.Value > most) { most = pair.Value; pesticide = pair.Key; }
+            }
+            float pesticides = 0f;
+            string pesticideName = "Pesticides";
+            if (pesticide != null)
+            {
+                burnedLog.TryGetValue(pesticide, out pesticides);
+                pesticideName = pesticide.name;
+            }
+            ShowOfflinePanel(away, counted, earned, pesticides, pesticideName);
+            SaveProgress(); // also stamps "now" as the last-seen time, so the same absence can't pay out twice
+        }
+
+        void ShowOfflinePanel(double away, double counted, float earned, float pesticides, string pesticideName)
+        {
+            string time = "You were away for " + FormatDuration(away) + (counted < away - 1 ? " (counted up to " + FormatDuration(counted) + ")" : "");
+            string money = "Earned while away: " + Format(earned) + " " + currency.name;
+            string used = pesticideName + " used: " + Format(pesticides);
+            if (ui.offlinePanel == null) { ShowToast("Welcome back! " + money + ". " + used + "."); return; }
+            if (ui.offlineTimeText != null) ui.offlineTimeText.text = time;
+            if (ui.offlineMoneyText != null) ui.offlineMoneyText.text = money;
+            if (ui.offlinePesticideText != null) ui.offlinePesticideText.text = used;
+            ui.offlinePanel.SetActive(true);
+        }
+
+        static string FormatDuration(double seconds)
+        {
+            int total = (int)Math.Min(seconds, int.MaxValue / 2.0);
+            int h = total / 3600, m = total % 3600 / 60, s = total % 60;
+            return h > 0 ? h + "h " + m + "m" : m > 0 ? m + "m " + s + "s" : s + "s";
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (!ready) return;
+            if (paused) SaveProgress();         // remembers when the player left
+            else ApplyOfflineProgress();        // coming back: pay out what the empire made meanwhile
+        }
         void OnApplicationQuit() { if (ready) SaveProgress(); }
 
         static string StreamingUrl(string relative)
@@ -1096,8 +1178,15 @@ namespace COMP2165.Clicker
                 goldVisible = false; goldEnd = Time.time + bonusDuration;
                 ShowToast(GoldenDisplayName + " bonus: " + Format(goldBonus) + "x!"); PlaySound("gold");
             });
-            ui.stackButton.onClick.AddListener(() => { if (ready && eventQueue.Count > 0) eventOpen = true; });
-            ui.closeEvent.onClick.AddListener(() => eventOpen = false);
+            // Events can't be closed and there is no stack button or count text any more. Their fields stay on
+            // ClickerCanvasView, but the objects are switched off here (null-safe, so deleting them in the scene is fine too).
+            if (ui.closeEvent != null) { ui.closeEvent.interactable = false; ui.closeEvent.gameObject.SetActive(false); }
+            if (ui.stackButton != null) ui.stackButton.gameObject.SetActive(false);
+            if (ui.stackButtonText != null) ui.stackButtonText.gameObject.SetActive(false);
+            if (ui.eventCount != null) ui.eventCount.gameObject.SetActive(false);
+            // welcome-back (offline income) panel: hidden until the player comes back from being away
+            if (ui.offlinePanel != null) ui.offlinePanel.SetActive(false);
+            if (ui.offlineCloseButton != null) ui.offlineCloseButton.onClick.AddListener(() => { if (ui.offlinePanel != null) ui.offlinePanel.SetActive(false); });
             ui.optionOne.onClick.AddListener(() => { if (ready) ResolveEvent(1); });
             ui.optionTwo.onClick.AddListener(() => { if (ready) ResolveEvent(2); });
             ui.buyMode.onClick.AddListener(() => sellingBuildings = false);
@@ -1108,7 +1197,6 @@ namespace COMP2165.Clicker
             ui.eventOverlay.SetActive(false);
             ui.toastPanel.SetActive(false);
             ui.goldenButton.gameObject.SetActive(false);
-            ui.stackButton.gameObject.SetActive(false);
             ui.buildingTemplate.gameObject.SetActive(false);
             ui.upgradeTemplate.gameObject.SetActive(false);
             // market: the R buttons set the market's own batch; the template row is hidden like the shop templates
@@ -1192,14 +1280,6 @@ namespace COMP2165.Clicker
             }
             ui.money.text = balances.ToString();
             ui.production.text = production.Append("  •  ").Append(Format(Multiplier)).Append("x active").ToString();
-            ui.eventCount.text = "EVENTS x " + eventQueue.Count;
-            // the event panel opens by itself; this button only brings it back after the player closed it
-            ui.stackButton.gameObject.SetActive(eventQueue.Count > 0 && !eventOpen);
-            if (eventQueue.Count > 0)
-            {
-                float stackLeft = EventTimeLeft(eventQueue[eventQueue.Count - 1]);
-                ui.stackButtonText.text = "OPEN EVENT" + (stackLeft < 0 ? string.Empty : " (" + Mathf.CeilToInt(stackLeft) + "s)");
-            }
             ui.background.texture = Image("background");
             ui.background.enabled = ui.background.texture != null;
             //ui.cookie.texture = Image("clickable") ?? fallbackCookie; redundant due to new manager
@@ -1288,7 +1368,7 @@ namespace COMP2165.Clicker
                 row.actionText.text = "BUY\n" + Format(cost) + " " + input.name;
             }
 
-            bool showEvent = eventOpen && eventQueue.Count > 0;
+            bool showEvent = eventQueue.Count > 0; // an event stays up until it is answered or runs out of time
             if (showEvent && shopTooltip != null) shopTooltip.Hide();
             ui.eventOverlay.SetActive(showEvent);
             if (showEvent)

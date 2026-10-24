@@ -4,5 +4,5 @@
 "buy","sounds/custom/buy.mp3"
 "gold","sounds/custom/ladybug.mp3"
 "event","sounds/question_001.wav"
-"success","sounds/confirmation_002.wav"
-"failure","sounds/error_001.wav"
+"success","sounds/custom/correct.mp3"
+"failure","sounds/custom/failure.mp3"
