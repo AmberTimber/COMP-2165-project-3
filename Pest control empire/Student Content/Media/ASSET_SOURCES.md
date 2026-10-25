@@ -29,6 +29,8 @@ hunter icon: https://www.imdb.com/title/tt0083944/?ref_=mv_close
 mercenary icon: https://villains.fandom.com/wiki/HUNK
 factory icon: https://www.reddit.com/r/Factoriohno/comments/xutpkt/when_the_factory_must_grow/
 fumigator icon: https://www.imdb.com/title/tt14651308/?ref_=mv_close
+camp icon: https://en.wikipedia.org/wiki/Auschwitz_concentration_camp
+lawyer icon: https://www.who.int/about/policies/publishing/logo
 
 upgrade icons:
 good service: https://www.onlinemarketinggurus.com.au/blog/seo/5-star-google-reviews-guide/

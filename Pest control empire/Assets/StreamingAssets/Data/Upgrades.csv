@@ -64,15 +64,15 @@ They call me the Plague Doctor.","cash","cash"
 "Napalm_mixture","Napalm mixture","2X Flamethrower output. 
 Not even the flames of hell can compare.","50000000","building","flamer","multiply","2","5000000","Napalm_mixture","2X Flamethrower output. 
 Not even the flames of hell can compare.","cash","cash"
+"squad_formation","Squad formation","3X mercenaries output.
+I trust in my teammates, and they trust in me.","150000000000","building","mercenary","multiply","3","28000000","Mercformation","2X mercenaries output.
+I trust in my teammates, and they trust in me.","cash","cash"
 "faster_loading","Faster loading","2X tank output. 
-Don't let the autoloader jam.","280000000","building","tank","multiply","2","28000000","faster_loading","2X tank output. 
+Don't let the autoloader jam.","280000000","building","tank","multiply","2","135000000","faster_loading","2X tank output. 
 Don't let the autoloader jam.","cash","cash"
 "AI_logistics","AI logistics","3X factory output. 
-The factory must grow.","1350000000","building","Factory","multiply","3","135000000","AI_logistics","3X factory output. 
+The factory must grow.","1350000000","building","Factory","multiply","3","5059300000","AI_logistics","3X factory output. 
 Now everything is optimised, except for my code.","cash","cash"
 "academic_funding","Academic funding","2X scientist output. 
-I am mad scientist! It's so cool!","50593000000","building","scientist","multiply","2","5059300000","academic_funding","2X scientist output. 
+I am mad scientist! It's so cool!","50593000000","building","scientist","multiply","2","15000000000","academic_funding","2X scientist output. 
 I am mad scientist! It's so cool!","cash","cash"
-"squad_formation","Squad formation","3X mercenaries output.
-I trust in my teammates, and they trust in me.","150000000000","building","mercenary","multiply","3","15000000000","Mercformation","2X mercenaries output.
-I trust in my teammates, and they trust in me.","cash","cash"
