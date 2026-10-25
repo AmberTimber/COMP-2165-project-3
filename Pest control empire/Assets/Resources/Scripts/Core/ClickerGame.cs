@@ -185,7 +185,7 @@ namespace COMP2165.Clicker
                     productionWithoutConsumption = Csv.Fraction(row, "productionW/Oconsumption")
                 };
                 item.unlockCurrency = Csv.Get(row, "unlock_currency", item.costCurrency);
-                if (string.IsNullOrEmpty(item.id) || item.cost < 0 || item.perSecond < 0 || item.consumeable < 0) { error = "Invalid Buildings.csv row: " + item.id; yield break; }
+                if (string.IsNullOrEmpty(item.id) || item.cost < 0 || item.perSecond < 0 || item.consumeable < 0 || float.IsInfinity(item.cost) || float.IsNaN(item.cost)) { error = "Invalid Buildings.csv row (is the cost a number below 3 x 10^38?): " + item.id; yield break; }
                 if (item.consumeable > 0 && string.IsNullOrEmpty(item.conesume_currency)) { error = "Buildings.csv: '" + item.id + "' has consumeable > 0 but no conesume_currency."; yield break; }
                 buildings.Add(item);
             }
@@ -193,7 +193,7 @@ namespace COMP2165.Clicker
             {
                 var item = new UpgradeData { id = Csv.Get(row, "id"), name = Csv.Get(row, "name"), description = Csv.Get(row, "description"), tooltip = Csv.Get(row, "tooltip"), image = Csv.Get(row, "image"), targetType = Csv.Get(row, "target_type"), targetId = Csv.Get(row, "target_id"), operation = Csv.Get(row, "operation"), cost = Csv.Number(row, "cost"), amount = Csv.Number(row, "amount", 1), unlockAt = Csv.Number(row, "unlock_at"), costCurrency = Csv.Get(row, "cost_currency", primaryId) };
                 item.unlockCurrency = Csv.Get(row, "unlock_currency", item.costCurrency);
-                if (string.IsNullOrEmpty(item.id) || item.cost < 0 || item.amount <= 0) { error = "Invalid Upgrades.csv row."; yield break; }
+                if (string.IsNullOrEmpty(item.id) || item.cost < 0 || item.amount <= 0 || float.IsInfinity(item.cost) || float.IsNaN(item.cost)) { error = "Invalid Upgrades.csv row (is the cost a number below 3 x 10^38?): " + item.id; yield break; }
                 upgrades.Add(item);
             }
             foreach (var row in loaded["Events"])
@@ -496,7 +496,7 @@ namespace COMP2165.Clicker
             if (Time.time >= nextEvent && events.Count > 0)
             { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
             if (Time.time >= nextGold && !goldVisible)
-            { goldVisible = true; nextGold = Time.time + goldInterval; }
+            { goldVisible = true; } // the cooldown only starts once this ladybug has been clicked
             if (Time.time >= nextSave) { SaveProgress(); nextSave = Time.time + 15; }
             RefreshCanvas();
             RefreshModifiers();
@@ -637,13 +637,19 @@ namespace COMP2165.Clicker
             return count;
         }
 
+        // Price of the next single building, from the game's own double-precision numbers (huge costs included).
+        float BuildingPrice(BuildingData row, int owned)
+        {
+            return (float)Math.Min((double)row.cost * Math.Pow(1 + manager.Config.BuildingCostIncrease, owned), float.MaxValue);
+        }
+
         float BuildingBatchValue(BuildingData row, int count, bool selling)
         {
             if (selling && count < buildingBatch) return float.PositiveInfinity;
             int start = selling ? count - buildingBatch : count;
             double total = 0;
             double growth = 1 + manager.Config.BuildingCostIncrease;
-            for (int i = 0; i < buildingBatch; i++) total += (int)row.cost * Math.Pow(growth, start + i);
+            for (int i = 0; i < buildingBatch; i++) total += (double)row.cost * Math.Pow(growth, start + i);
             if (selling) total *= sellRefund;
             return (float)Math.Min(total, float.MaxValue);
         }
@@ -665,7 +671,8 @@ namespace COMP2165.Clicker
             {
                 float cost = BuildingBatchValue(row, count, false);
                 if (Balance(costCurrency) < cost) return;
-                for (int i = 0; i < buildingBatch; i++) manager.BuyBuilding(asset);
+                manager.State.CurrencyCurrentTotals[costCurrency] = Mathf.Max(0f, Balance(costCurrency) - cost);
+                manager.State.EarnedBuildings[asset] = count + buildingBatch;
                 ShowToast("Bought " + buildingBatch + " " + row.name + " for " + Format(cost) + " " + costCurrency.name + ".");
             }
             PlaySound("buy");
@@ -878,13 +885,16 @@ namespace COMP2165.Clicker
 
         void ShowToast(string message) { toast = message; toastUntil = Time.time + 4; }
         void EnsureMusic() { if (music != null && music.clip != null && !music.isPlaying) music.Play(); }
+        static readonly string[] NumberSuffixes = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc" };
+
         static string Format(float value)
         {
-            if (value >= 1e12f) return (value / 1e12f).ToString("0.##", CultureInfo.InvariantCulture) + "T";
-            if (value >= 1e9f) return (value / 1e9f).ToString("0.##", CultureInfo.InvariantCulture) + "B";
-            if (value >= 1e6f) return (value / 1e6f).ToString("0.##", CultureInfo.InvariantCulture) + "M";
-            if (value >= 1000) return (value / 1000).ToString("0.##", CultureInfo.InvariantCulture) + "K";
-            return value.ToString("0.#", CultureInfo.InvariantCulture);
+            if (float.IsNaN(value)) return "0";
+            if (float.IsInfinity(value)) return value > 0f ? "MAX" : "0";
+            double scaled = value;
+            int tier = 0;
+            while (scaled >= 1000.0 && tier < NumberSuffixes.Length - 1) { scaled /= 1000.0; tier++; }
+            return scaled.ToString(tier == 0 ? "0.#" : "0.##", CultureInfo.InvariantCulture) + NumberSuffixes[tier];
         }
 
         // Wipes the saved game so the next load starts from zero (used by the pause menu's Restart button).
@@ -1176,6 +1186,7 @@ namespace COMP2165.Clicker
                 if (!ready || !goldVisible) return;
                 EnsureMusic();
                 goldVisible = false; goldEnd = Time.time + bonusDuration;
+                nextGold = Time.time + goldInterval; // the next ladybug comes one interval after this click
                 ShowToast(GoldenDisplayName + " bonus: " + Format(goldBonus) + "x!"); PlaySound("gold");
             });
             // Events can't be closed and there is no stack button or count text any more. Their fields stay on
@@ -1231,7 +1242,12 @@ namespace COMP2165.Clicker
                 row.action.onClick.AddListener(() =>
                 {
                     if (!ready) return;
-                    manager.BuyUpgrade(upgradeAssets[data.id]); PlaySound("buy"); SaveProgress();
+                    var upgradeAsset = upgradeAssets[data.id];
+                    var upgradeCurrency = upgradeAsset.Cost.Currency;
+                    if (manager.State.EarnedUpgrades.Contains(upgradeAsset) || Balance(upgradeCurrency) < data.cost) return;
+                    manager.State.CurrencyCurrentTotals[upgradeCurrency] = Mathf.Max(0f, Balance(upgradeCurrency) - data.cost);
+                    manager.State.EarnedUpgrades.Add(upgradeAsset);
+                    PlaySound("buy"); SaveProgress();
                 });
                 upgradeRows.Add(data.id, row);
             }
@@ -1305,7 +1321,7 @@ namespace COMP2165.Clicker
                 int count = BuildingCount(data);
                 var asset = buildingAssets[data.id];
                 var costCurrency = asset.Cost.Currency;
-                bool visible = ShopVisible(manager.BuildingCost(asset).Amount, costCurrency, count > 0, data == buildings[0]);
+                bool visible = ShopVisible(BuildingPrice(data, count), costCurrency, count > 0, data == buildings[0]);
                 row.gameObject.SetActive(visible);
                 if (!visible) continue;
                 var unlockCurrency = currencyAssets[data.unlockCurrency];
