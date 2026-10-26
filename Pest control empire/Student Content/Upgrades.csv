@@ -18,7 +18,7 @@ Now with extendo arm included.","cash","cash"
 ""If you know the enemy and know yourself, you need not fear the result of a hundred battles.""","10000","building","pestcontrol","multiply","2","1000","smart_catching","2X pest controller output. 
 ""If you know the enemy and know yourself, you need not fear the result of a hundred battles.""","cash","cash"
 "modernized_farmers","Modernized farmers","3X farmer output. 
-The future is now, old man.","11000","building","pestcontrol","multiply","2","1100","modernized_farmers","3X farmer output. 
+The future is now, old man.","11000","building","farmer","multiply","3","1100","modernized_farmers","3X farmer output. 
 The future is now, old man.","cash","cash"
 "big_boss","Boss action","5X manual click stats. 
 Kept you waiting, huh?","30000","click","","multiply","5","3000","big_boss","5X manual click stats. 
