@@ -19,6 +19,10 @@ public class PestHit : MonoBehaviour
     public string rewardCurrency = "reputation";
     public float rewardAmount = 1;
     public Color newColor;
+    // pests change colour each time the whole texture cycle completes; the colour is always kept bright
+    [Range(0f, 1f)] public float minBrightness = 0.8f;
+    [Range(0f, 1f)] public float minSaturation = 0.35f;
+    const string ColorKey = "pestColor"; // saved and loaded under this one key (loading used to read "texturePos")
 
 
     private void OnEnable()
@@ -51,7 +55,7 @@ public class PestHit : MonoBehaviour
         // text
         healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
         // color
-        newColor = GetColor("texturePos", Color.white);
+        newColor = Brighten(GetColor(ColorKey, Color.white)); // an old dark colour is lifted to the minimum brightness
         pestImg.color = newColor;
 
     }
@@ -72,8 +76,8 @@ public class PestHit : MonoBehaviour
             if (textureCount > textures.Length - 1)
             {
                 textureCount = 0;
-                newColor = Random.ColorHSV();
-                SetColor("NewColor", newColor);
+                newColor = Random.ColorHSV(0f, 1f, minSaturation, 1f, minBrightness, 1f); // any hue, never dark
+                SetColor(ColorKey, newColor);
                 pestImg.color = newColor;
             }
             pestImg.texture = textures[textureCount];
@@ -90,6 +94,7 @@ public class PestHit : MonoBehaviour
         PlayerPrefs.DeleteKey("hits");
         PlayerPrefs.DeleteKey("hitsRequired");
         PlayerPrefs.DeleteKey("texturePos");
+        PlayerPrefs.DeleteKey(ColorKey);
     }
 
     private void HitPest()
@@ -101,11 +106,23 @@ public class PestHit : MonoBehaviour
         healthTXT.text = "Health: " + (requiredHits - hitCount).ToString();
     }
 
+    // Lifts a colour that is darker than minBrightness up to it, keeping its hue and saturation.
+    private Color Brighten(Color color)
+    {
+        float hue, saturation, value;
+        Color.RGBToHSV(color, out hue, out saturation, out value);
+        if (value >= minBrightness) return color;
+        Color lifted = Color.HSVToRGB(hue, saturation, minBrightness);
+        lifted.a = color.a;
+        return lifted;
+    }
+
     // Save Color
     public static void SetColor(string key, Color color)
     {
         string hex = ColorUtility.ToHtmlStringRGBA(color);
         PlayerPrefs.SetString(key, hex);
+        PlayerPrefs.Save();
     }
 
     // Load Color

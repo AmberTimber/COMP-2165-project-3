@@ -60,7 +60,10 @@ namespace COMP2165.Clicker
         float goldBonus = 7, bonusDuration = 20, eventInterval = 35, goldInterval = 50, wrongPenalty = 0.1f, sellRefund = 0.5f, shopReveal = 0.5f;
         // Settings.csv: reputation bonus per point (as a fraction), its ceiling and floor, and how long a failed event's debuff lasts
         float reputationPerPoint = 0.01f, reputationMaxBonus = 1f, reputationMaxPenalty = 0.99f, eventDebuffSeconds = 20f;
-        readonly List<float> debuffEnds = new List<float>(); // when each failed-event debuff runs out
+        float reputationMax = 100f, reputationMin = -100f; // Settings.csv reputation_max / reputation_min: reputation can't go beyond these
+        // Timed changes to all income: failed-event debuffs, and the buffs and penalties of three-option events
+        class TimedEffect { public float end, factor; }
+        readonly List<TimedEffect> effects = new List<TimedEffect>();
         bool savingBlocked; // set by ResetProgress so nothing writes the old save back
         // Offline income (Settings.csv offline_income_percent / offline_max_hours): the share of its normal rate the empire keeps
         // earning and consuming while the game isn't running, and the longest absence that counts (0 = no limit)
@@ -148,9 +151,11 @@ namespace COMP2165.Clicker
             eventDebuffSeconds = Setting("event_debuff_interval_seconds", 20);
             offlinePercent = Setting("offline_income_percent", 50);
             offlineMaxHours = Setting("offline_max_hours", 24);
+            reputationMax = Setting("reputation_max", 100);
+            reputationMin = Setting("reputation_min", -100);
             sellRefund = Setting("sell_refund_percent", 50) / 100f;
             shopReveal = Setting("shop_reveal_percent", 50) / 100f;
-            if (goldBonus < 1 || eventRewardPercent < 0 || reputationPerPoint < 0 || reputationMaxBonus < 0 || reputationMaxPenalty < 0 || reputationMaxPenalty > 1 || eventDebuffSeconds < 0 || offlinePercent < 0 || offlineMaxHours < 0 || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
+            if (goldBonus < 1 || eventRewardPercent < 0 || reputationPerPoint < 0 || reputationMaxBonus < 0 || reputationMaxPenalty < 0 || reputationMaxPenalty > 1 || eventDebuffSeconds < 0 || offlinePercent < 0 || offlineMaxHours < 0 || reputationMin > reputationMax || bonusDuration <= 0 || eventInterval <= 0 || goldInterval <= 0 || wrongPenalty < 0 || wrongPenalty > 1 || sellRefund < 0 || sellRefund > 1 || shopReveal < 0 || shopReveal > 1)
             { error = "Check multiplier, duration, interval and penalty values in Settings.csv."; yield break; }
 
             foreach (var row in loaded["Currencies"])
@@ -198,8 +203,11 @@ namespace COMP2165.Clicker
             }
             foreach (var row in loaded["Events"])
             {
-                int correctOption;
-                if (!int.TryParse(Csv.Get(row, "Correct Option"), NumberStyles.Integer, CultureInfo.InvariantCulture, out correctOption) || correctOption < 0 || correctOption > 2)
+                int correctOption = 0;
+                string correctText = Csv.Get(row, "Correct Option");
+                bool choiceRow = !string.IsNullOrEmpty(Csv.Get(row, "Event Option 3")); // three-option events don't use Correct Option
+                if (!(choiceRow && correctText.Length == 0)
+                    && (!int.TryParse(correctText, NumberStyles.Integer, CultureInfo.InvariantCulture, out correctOption) || correctOption < 0 || correctOption > 2))
                 { error = "Every event needs Correct Option 0 (random), 1, or 2."; yield break; }
                 bool lossIsPercent;
                 float repLoss = Csv.Amount(row, "Reputation Loss", out lossIsPercent);
@@ -220,8 +228,23 @@ namespace COMP2165.Clicker
                     failureCount = Mathf.RoundToInt(Csv.Number(row, "Failure Building Count", 1)),
                     // reputation lost on every failure: points, or a percent of current reputation when the cell ends in %
                     reputationLoss = repLoss,
-                    reputationLossIsPercent = lossIsPercent
+                    reputationLossIsPercent = lossIsPercent,
+                    reputationGain = Mathf.Max(0f, Csv.Number(row, "Reputation gain")), // points for a correct classic answer
+                    option3 = Csv.Get(row, "Event Option 3")
                 };
+                if (item.IsChoice)
+                {
+                    item.chance = Csv.Fraction(row, "Option 1 Chance %", 0.5f);
+                    item.sacrificeId = Csv.Get(row, "Option 2 Cost");
+                    item.sacrificeMin = Mathf.Max(0f, Csv.Number(row, "Option 2 Cost Min", 1));
+                    item.sacrificeMax = Mathf.Max(item.sacrificeMin, Csv.Number(row, "Option 2 Cost Max", item.sacrificeMin));
+                    item.win = ReadOutcome(row, "Win", 1, true);
+                    item.lose = ReadOutcome(row, "Lose", -1, false);
+                    item.sacrifice = ReadOutcome(row, "Sacrifice", 1, false);
+                    item.wrong = ReadOutcome(row, "Wrong", -1, false);
+                    if (string.IsNullOrEmpty(item.sacrificeId))
+                    { error = "Events.csv: the three-option event '" + item.title + "' needs an Option 2 Cost (a building or currency id)."; yield break; }
+                }
                 if (item.successCount < 0 || item.failureCount < 0) { error = "Events.csv: building counts can't be negative (event '" + item.title + "')."; yield break; }
                 events.Add(item);
             }
@@ -288,6 +311,7 @@ namespace COMP2165.Clicker
             shopTooltip = ClickerTooltip.Ensure(ui);
             if (loaded["Palette"].Count > 0) ClickerPalette.Apply(ui, loaded["Palette"]);
             if (ui.money != null) modifierAccent = ui.money.color; // money uses the text_title palette colour
+            ClampReputation();
             ApplyOfflineProgress(); // pay out what the empire made while the game wasn't running
             ready = true;
             BuildShopRows();
@@ -377,8 +401,8 @@ namespace COMP2165.Clicker
             }
             foreach (var row in events) if (!currencyAssets.ContainsKey(row.currencyId)) { error = "Unknown event currency: " + row.currencyId; return; }
             foreach (var row in events)
-                if (row.reputationLoss > 0 && !currencyAssets.ContainsKey(ReputationId))
-                { error = "Events.csv uses Reputation Loss, but Currencies.csv has no '" + ReputationId + "' currency."; return; }
+                if ((row.reputationLoss > 0 || row.reputationGain > 0) && !currencyAssets.ContainsKey(ReputationId))
+                { error = "Events.csv uses reputation, but Currencies.csv has no '" + ReputationId + "' currency."; return; }
             foreach (var row in events)
             {
                 if (!string.IsNullOrEmpty(row.successBuilding))
@@ -392,6 +416,28 @@ namespace COMP2165.Clicker
                     string known = BuildingIdFor(row.failureBuilding);
                     if (known == null) { error = "Events.csv: unknown Failure Building '" + row.failureBuilding + "' in event '" + row.title + "'."; return; }
                     row.failureBuilding = known;
+                }
+            }
+            foreach (var row in events)
+            {
+                if (!row.IsChoice) continue;
+                // the sacrificed resource is a building or, failing that, a currency
+                string sacrificed = BuildingIdFor(row.sacrificeId);
+                if (sacrificed != null && sacrificed != RandomBuilding) { row.sacrificeId = sacrificed; row.sacrificeIsBuilding = true; }
+                else
+                {
+                    string currencyKey = null;
+                    foreach (var key in currencyAssets.Keys) if (string.Equals(key, row.sacrificeId, StringComparison.OrdinalIgnoreCase)) currencyKey = key;
+                    if (currencyKey == null) { error = "Events.csv: unknown Option 2 Cost '" + row.sacrificeId + "' in event '" + row.title + "' (use a building or currency id)."; return; }
+                    row.sacrificeId = currencyKey;
+                    row.sacrificeIsBuilding = false;
+                }
+                foreach (var outcome in new[] { row.win, row.lose, row.sacrifice, row.wrong })
+                {
+                    if (string.IsNullOrEmpty(outcome.building)) continue;
+                    string known = BuildingIdFor(outcome.building);
+                    if (known == null) { error = "Events.csv: unknown building '" + outcome.building + "' in event '" + row.title + "'."; return; }
+                    outcome.building = known;
                 }
             }
             manager = ScriptableObject.CreateInstance<ClickerManager>();
@@ -422,8 +468,26 @@ namespace COMP2165.Clicker
 
         void GrantCurrency(Currency asset, float amount)
         {
-            manager.State.CurrencyCurrentTotals[asset] = Mathf.Max(0, Balance(asset) + amount);
+            manager.State.CurrencyCurrentTotals[asset] = AllowedBalance(asset, Balance(asset) + amount);
             if (amount > 0) manager.State.CurrencyHistoricalTotals[asset] = Historical(asset) + amount;
+            ClampReputation();
+        }
+
+        // Every currency stays at zero or above, except reputation, which may go negative.
+        float AllowedBalance(Currency asset, float value)
+        {
+            Currency reputation;
+            return currencyAssets.TryGetValue(ReputationId, out reputation) && reputation == asset ? value : Mathf.Max(0f, value);
+        }
+
+        // Reputation never goes above reputation_max or below reputation_min (Settings.csv).
+        void ClampReputation()
+        {
+            Currency asset;
+            if (!currencyAssets.TryGetValue(ReputationId, out asset)) return;
+            float value = Balance(asset);
+            float clamped = Mathf.Clamp(value, reputationMin, reputationMax);
+            if (value != clamped) manager.State.CurrencyCurrentTotals[asset] = clamped;
         }
 
         // How hard one click hits a pest (used by PestHit): the click multiplier from every click upgrade owned, never below 1.
@@ -461,23 +525,24 @@ namespace COMP2165.Clicker
             }
         }
 
-        // Every failed event starts a debuff that cuts all income by wrong_penalty_percent for event_debuff_interval_seconds.
-        // Debuffs stack by multiplying (two of them at 25% leave 0.75 x 0.75 = 56% of income).
-        float DebuffFactor
+        // Timed effects multiply all income while they last. Every failed classic event starts a debuff of wrong_penalty_percent
+        // for event_debuff_interval_seconds, and three-option events add their own buffs and penalties. They stack by multiplying
+        // (two 25% debuffs leave 0.75 x 0.75 = 56% of income; a +100% buff doubles it).
+        float EffectFactor
         {
             get
             {
                 float factor = 1f;
-                for (int i = 0; i < debuffEnds.Count; i++)
-                    if (Time.time < debuffEnds[i]) factor *= Mathf.Max(0f, 1f - wrongPenalty);
+                for (int i = 0; i < effects.Count; i++)
+                    if (Time.time < effects[i].end) factor *= effects[i].factor;
                 return factor;
             }
         }
 
         // What every unit of base income (buildings and clicks) is multiplied by. The ladybug and pests-killed bonuses multiply
-        // each other, the reputation bonus is kept separate and added on top, and failed-event debuffs then cut the whole result.
+        // each other, the reputation bonus is kept separate and added on top, and timed event effects then scale the whole result.
         // Example: ladybug x2, pests +70%, reputation +57% -> 2 x 1.7 + 0.57 = 3.97, or 2.98 while one 25% debuff is active.
-        float IncomeMultiplier { get { return (Multiplier * overallBonus + ReputationBonus) * DebuffFactor; } }
+        float IncomeMultiplier { get { return (Multiplier * overallBonus + ReputationBonus) * EffectFactor; } }
 
         void Update()
         {
@@ -487,7 +552,8 @@ namespace COMP2165.Clicker
                 return;
             }
             ExpireEvents(); // events nobody answered in time fail
-            for (int i = debuffEnds.Count - 1; i >= 0; i--) if (Time.time >= debuffEnds[i]) debuffEnds.RemoveAt(i);
+            for (int i = effects.Count - 1; i >= 0; i--) if (Time.time >= effects[i].end) effects.RemoveAt(i);
+            ClampReputation();
             if (Time.time >= nextTick)
             {
                 nextTick = Time.time + 1;
@@ -734,18 +800,33 @@ namespace COMP2165.Clicker
             public EventData data;
             public int correct;
             public bool flipped;
+            public int[] order; // choice events: order[button] = the answer that button shows (0 gamble, 1 sacrifice, 2 wrong)
             public float deadline;
         }
 
         QueuedEvent QueueEvent(EventData source)
         {
-            return new QueuedEvent
+            var queued = new QueuedEvent
             {
                 data = source,
                 correct = source.correctOption != 0 ? source.correctOption : UnityEngine.Random.Range(1, 3),
                 flipped = UnityEngine.Random.value < 0.5f, // the answers land on random sides
                 deadline = eventTimeLimit > 0 ? Time.time + eventTimeLimit : float.PositiveInfinity
             };
+            if (source.IsChoice)
+            {
+                queued.order = new[] { 0, 1, 2 };
+                // without a third button in the scene, only the first two answers can be shuffled and the wrong answer stays last
+                int shuffled = ui != null && ui.optionThree != null ? 3 : 2;
+                for (int i = shuffled - 1; i > 0; i--)
+                {
+                    int j = UnityEngine.Random.Range(0, i + 1);
+                    int swap = queued.order[i];
+                    queued.order[i] = queued.order[j];
+                    queued.order[j] = swap;
+                }
+            }
+            return queued;
         }
 
         // Seconds left to answer, or -1 when events have no time limit.
@@ -763,7 +844,8 @@ namespace COMP2165.Clicker
                 if (Time.time < eventQueue[i].deadline) continue;
                 var late = eventQueue[i];
                 eventQueue.RemoveAt(i);
-                FinishEvent(late.data, false, "Out of time!");
+                if (late.data.IsChoice) ApplyOutcome(late.data, late.data.wrong, "Out of time!", false); // doing nothing is the wrong answer
+                else FinishEvent(late.data, false, "Out of time!");
                 expired = true;
             }
             if (!expired) return;
@@ -775,6 +857,8 @@ namespace COMP2165.Clicker
         {
             if (eventQueue.Count == 0) return;
             var current = eventQueue[eventQueue.Count - 1];
+            if (current.data.IsChoice) { ResolveChoice(current, side); return; }
+            if (side > 2) return; // classic events only have two answers
             int choice = current.flipped ? 3 - side : side;
             eventQueue.RemoveAt(eventQueue.Count - 1);
             FinishEvent(current.data, choice == current.correct, choice == current.correct ? "Good call!" : "Wrong call.");
@@ -803,6 +887,12 @@ namespace COMP2165.Clicker
                 string giveTo = EventBuilding(data.successBuilding);
                 int gained = ChangeBuildings(giveTo, data.successCount);
                 if (gained > 0) message.Append(", +").Append(gained).Append(' ').Append(BuildingName(giveTo));
+                Currency gainedReputation;
+                if (data.reputationGain > 0f && currencyAssets.TryGetValue(ReputationId, out gainedReputation))
+                {
+                    manager.State.CurrencyCurrentTotals[gainedReputation] = Balance(gainedReputation) + data.reputationGain;
+                    message.Append(", +").Append(Format(data.reputationGain)).Append(' ').Append(gainedReputation.name);
+                }
             }
             else
             {
@@ -825,13 +915,174 @@ namespace COMP2165.Clicker
                 if (lost > 0) message.Append(", -").Append(lost).Append(' ').Append(BuildingName(takeFrom));
                 if (eventDebuffSeconds > 0f && wrongPenalty > 0f)
                 {
-                    debuffEnds.Add(Time.time + eventDebuffSeconds); // a new debuff for every failure
+                    effects.Add(new TimedEffect { end = Time.time + eventDebuffSeconds, factor = Mathf.Max(0f, 1f - wrongPenalty) }); // a new debuff for every failure
                     message.Append(", income -").Append(Mathf.RoundToInt(wrongPenalty * 100f)).Append("% for ").Append(Mathf.RoundToInt(eventDebuffSeconds)).Append('s');
                 }
             }
             message.Append('.');
+            ClampReputation();
             ShowToast(message.ToString());
             PlaySound(success ? "success" : "failure");
+        }
+
+        // Reads one outcome (Win / Lose / Sacrifice / Wrong) of a three-option event from its six columns.
+        // direction is the way a blank building count goes: +1 gives one building, -1 takes one away.
+        static EventOutcome ReadOutcome(Dictionary<string, string> row, string prefix, int direction, bool blankCashIsDefault)
+        {
+            return new EventOutcome
+            {
+                cashPercent = Csv.Signed(row, prefix + " Cash %"),
+                cashIsDefault = blankCashIsDefault && Csv.Get(row, prefix + " Cash %").Length == 0, // a blank Win cash = Settings event_multiplier
+                reputation = Csv.Signed(row, prefix + " Reputation"),
+                building = Csv.Get(row, prefix + " Building"),
+                buildingChange = Mathf.RoundToInt(Csv.Signed(row, prefix + " Building Count", direction)),
+                incomePercent = Csv.Signed(row, prefix + " Income %"),
+                incomeSeconds = Csv.Number(row, prefix + " Income Seconds")
+            };
+        }
+
+        // Three-option events. side is the button pressed (1..3) and order says which answer that button shows:
+        //   0: the gamble        succeeds with the sheet's chance (Win outcome), otherwise the Lose outcome
+        //   1: the sacrifice     pays its cost (a building or currency) and gets the Sacrifice outcome
+        //   2: the wrong answer  only the Wrong outcome. Running out of time counts as this answer too.
+        void ResolveChoice(QueuedEvent queued, int side)
+        {
+            var data = queued.data;
+            int answer = queued.order[Mathf.Clamp(side, 1, 3) - 1];
+            if (answer == 1 && !CanSacrifice(data)) return; // can't pay: the click does nothing and the event stays up
+            eventQueue.Remove(queued);
+            if (answer == 0)
+            {
+                bool won = UnityEngine.Random.value < data.chance;
+                ApplyOutcome(data, won ? data.win : data.lose, won ? "Success!" : "It failed.", won);
+            }
+            else if (answer == 1)
+            {
+                string paid = PaySacrifice(data);
+                ApplyOutcome(data, data.sacrifice, "Sacrificed " + paid + ".", data.sacrifice.incomePercent > 0f);
+            }
+            else ApplyOutcome(data, data.wrong, "Wrong call.", false);
+            SaveProgress();
+        }
+
+        // Applies one outcome: a cash bonus or loss, reputation, buildings given or taken, and a timed change to all income.
+        // Only what the sheet fills in happens. The toast lists the changes.
+        void ApplyOutcome(EventData data, EventOutcome o, string lead, bool good)
+        {
+            var eventCurrency = currencyAssets[data.currencyId];
+            var parts = new List<string>();
+
+            float cashPercent = o.cashIsDefault ? eventRewardPercent : o.cashPercent;
+            if (cashPercent > 0f)
+            {
+                var paidIn = eventCurrency;
+                float reward = cashPercent / 100f * MaxPerSecond(paidIn) * bonusDuration;
+                if (reward <= 0f && eventCurrency != currency)
+                {
+                    paidIn = currency; // none of that resource is being produced: pay the main currency instead
+                    reward = cashPercent / 100f * MaxPerSecond(paidIn) * bonusDuration;
+                }
+                if (reward > 0f) { GrantCurrency(paidIn, reward); parts.Add("+" + Format(reward) + " " + paidIn.name); }
+            }
+            else if (cashPercent < 0f)
+            {
+                float balance = Balance(eventCurrency);
+                float loss = Mathf.Max(0f, Mathf.Min(balance, balance * -cashPercent / 100f));
+                if (loss > 0f)
+                {
+                    manager.State.CurrencyCurrentTotals[eventCurrency] = balance - loss;
+                    parts.Add("-" + Format(loss) + " " + eventCurrency.name);
+                }
+            }
+
+            Currency reputation;
+            if (o.reputation != 0f && currencyAssets.TryGetValue(ReputationId, out reputation))
+            {
+                manager.State.CurrencyCurrentTotals[reputation] = Balance(reputation) + o.reputation;
+                ClampReputation();
+                parts.Add((o.reputation > 0f ? "+" : "-") + Format(Mathf.Abs(o.reputation)) + " " + reputation.name);
+            }
+
+            if (!string.IsNullOrEmpty(o.building) && o.buildingChange != 0)
+            {
+                string target = EventBuilding(o.building);
+                int changed = ChangeBuildings(target, o.buildingChange);
+                if (changed > 0) parts.Add((o.buildingChange > 0 ? "+" : "-") + changed + " " + BuildingName(target));
+            }
+
+            if (o.incomePercent != 0f)
+            {
+                float seconds = o.incomeSeconds > 0f ? o.incomeSeconds : eventDebuffSeconds;
+                if (seconds > 0f)
+                {
+                    effects.Add(new TimedEffect { end = Time.time + seconds, factor = Mathf.Max(0f, 1f + o.incomePercent / 100f) });
+                    parts.Add("income " + (o.incomePercent > 0f ? "+" : "-") + Mathf.RoundToInt(Mathf.Abs(o.incomePercent)) + "% for " + Mathf.RoundToInt(seconds) + "s");
+                }
+            }
+
+            ShowToast(parts.Count > 0 ? lead + " " + string.Join(", ", parts.ToArray()) + "." : lead);
+            PlaySound(good ? "success" : "failure");
+        }
+
+        int OwnedCount(string id)
+        {
+            Building asset;
+            int count = 0;
+            if (buildingAssets.TryGetValue(id, out asset)) manager.State.EarnedBuildings.TryGetValue(asset, out count);
+            return count;
+        }
+
+        // The sacrifice option is only usable while the player owns at least the minimum of what it costs.
+        bool CanSacrifice(EventData data)
+        {
+            if (data.sacrificeIsBuilding) return OwnedCount(data.sacrificeId) >= Mathf.CeilToInt(data.sacrificeMin);
+            Currency asset;
+            return currencyAssets.TryGetValue(data.sacrificeId, out asset) && Balance(asset) >= data.sacrificeMin;
+        }
+
+        // Takes the sacrifice: a whole number of buildings between min and max, or an amount of a currency between min and max
+        // (never more than the player has). Returns what was paid, for the toast.
+        string PaySacrifice(EventData data)
+        {
+            if (data.sacrificeIsBuilding)
+            {
+                int roll = UnityEngine.Random.Range(Mathf.CeilToInt(data.sacrificeMin), Mathf.FloorToInt(data.sacrificeMax) + 1);
+                int taken = Mathf.Min(roll, OwnedCount(data.sacrificeId));
+                ChangeBuildings(data.sacrificeId, -taken);
+                return taken + " " + BuildingName(data.sacrificeId);
+            }
+            var asset = currencyAssets[data.sacrificeId];
+            float amount = Mathf.Min(UnityEngine.Random.Range(data.sacrificeMin, data.sacrificeMax), Mathf.Max(0f, Balance(asset)));
+            manager.State.CurrencyCurrentTotals[asset] = Balance(asset) - amount;
+            ClampReputation();
+            return Format(amount) + " " + asset.name;
+        }
+
+        // "3-5 Mercenary" or "4 Mercenary"
+        string SacrificeText(EventData data)
+        {
+            string amount = data.sacrificeMax > data.sacrificeMin ? Format(data.sacrificeMin) + "-" + Format(data.sacrificeMax) : Format(data.sacrificeMin);
+            Currency asset;
+            string name = data.sacrificeIsBuilding ? BuildingName(data.sacrificeId) : (currencyAssets.TryGetValue(data.sacrificeId, out asset) ? asset.name : data.sacrificeId);
+            return amount + " " + name;
+        }
+
+        // Button text for answer 0 / 1 / 2 of a choice event, with the chance or the cost spelled out from the sheet's numbers.
+        string ChoiceLabel(EventData data, int answer)
+        {
+            if (answer == 0) return data.option1 + "\n(" + Mathf.RoundToInt(data.chance * 100f) + "% chance)";
+            if (answer == 1) return data.option2 + "\n(costs " + SacrificeText(data) + ")";
+            return data.option3;
+        }
+
+        bool ChoiceUsable(EventData data, int answer) { return answer != 1 || CanSacrifice(data); }
+
+        void SetOption(Button button, Text label, string text, bool usable)
+        {
+            if (button == null) return;
+            button.gameObject.SetActive(true);
+            button.interactable = usable;
+            if (label != null) label.text = text;
         }
 
         // Reputation an event takes when it fails: a fixed number of points, or a percent of the current reputation
@@ -939,7 +1190,7 @@ namespace COMP2165.Clicker
                     {
                         Currency asset;
                         if (!currencyAssets.TryGetValue(item.id, out asset)) continue;
-                        manager.State.CurrencyCurrentTotals[asset] = Mathf.Max(0, item.amount);
+                        manager.State.CurrencyCurrentTotals[asset] = AllowedBalance(asset, item.amount);
                         manager.State.CurrencyHistoricalTotals[asset] = Mathf.Max(0, item.lifetime);
                     }
                 }
@@ -1200,6 +1451,8 @@ namespace COMP2165.Clicker
             if (ui.offlineCloseButton != null) ui.offlineCloseButton.onClick.AddListener(() => { if (ui.offlinePanel != null) ui.offlinePanel.SetActive(false); });
             ui.optionOne.onClick.AddListener(() => { if (ready) ResolveEvent(1); });
             ui.optionTwo.onClick.AddListener(() => { if (ready) ResolveEvent(2); });
+            if (ui.optionThree != null) ui.optionThree.onClick.AddListener(() => { if (ready) ResolveEvent(3); });
+            else Debug.LogWarning("ClickerCanvasView.optionThree isn't assigned: three-option events will only offer their first two answers.");
             ui.buyMode.onClick.AddListener(() => sellingBuildings = false);
             ui.sellMode.onClick.AddListener(() => sellingBuildings = true);
             ui.batchOne.onClick.AddListener(() => buildingBatch = 1);
@@ -1394,9 +1647,19 @@ namespace COMP2165.Clicker
                 ui.eventTitle.text = current.title;
                 ui.eventDescription.text = current.description;
                 ui.eventImage.texture = Image(current.image) ?? Icon("event", "all");
-                // the two answers sit on random sides, fixed for each event
-                ui.optionOneText.text = queued.flipped ? current.option2 : current.option1;
-                ui.optionTwoText.text = queued.flipped ? current.option1 : current.option2;
+                // the answers sit on random buttons, fixed for each event
+                if (current.IsChoice)
+                {
+                    SetOption(ui.optionOne, ui.optionOneText, ChoiceLabel(current, queued.order[0]), ChoiceUsable(current, queued.order[0]));
+                    SetOption(ui.optionTwo, ui.optionTwoText, ChoiceLabel(current, queued.order[1]), ChoiceUsable(current, queued.order[1]));
+                    SetOption(ui.optionThree, ui.optionThreeText, ChoiceLabel(current, queued.order[2]), ChoiceUsable(current, queued.order[2]));
+                }
+                else
+                {
+                    SetOption(ui.optionOne, ui.optionOneText, queued.flipped ? current.option2 : current.option1, true);
+                    SetOption(ui.optionTwo, ui.optionTwoText, queued.flipped ? current.option1 : current.option2, true);
+                    if (ui.optionThree != null) ui.optionThree.gameObject.SetActive(false);
+                }
                 float timeLeft = EventTimeLeft(queued);
                 string timeText = timeLeft < 0 ? string.Empty : "Time left: " + Mathf.CeilToInt(timeLeft) + "s";
                 string waitingText = eventQueue.Count > 1 ? (eventQueue.Count - 1) + " more waiting" : string.Empty;
@@ -1482,18 +1745,21 @@ namespace COMP2165.Clicker
                 text.Append(open).Append(reputationPercent > 0 ? "+" : string.Empty).Append(reputationPercent.ToString("0.##", CultureInfo.InvariantCulture)).Append('%').Append(close);
             else text.Append("+0%");
 
-            int debuffs = 0;
-            float debuffLeft = 0;
-            for (int i = 0; i < debuffEnds.Count; i++)
+            int activeEffects = 0;
+            float effectLeft = 0;
+            for (int i = 0; i < effects.Count; i++)
             {
-                if (Time.time >= debuffEnds[i]) continue;
-                debuffs++;
-                debuffLeft = Mathf.Max(debuffLeft, debuffEnds[i] - Time.time);
+                if (Time.time >= effects[i].end) continue;
+                activeEffects++;
+                effectLeft = Mathf.Max(effectLeft, effects[i].end - Time.time);
             }
-            text.Append("\nEvent debuff: ");
-            if (debuffs > 0)
-                text.Append(open).Append('-').Append(Mathf.RoundToInt((1f - DebuffFactor) * 100f)).Append('%').Append(close)
-                    .Append(" (").Append(debuffs).Append(debuffs == 1 ? " active, " : " stacked, ").Append(Mathf.CeilToInt(debuffLeft)).Append("s left)");
+            text.Append("\nEvent effect: ");
+            if (activeEffects > 0)
+            {
+                int effectPercent = Mathf.RoundToInt((EffectFactor - 1f) * 100f);
+                text.Append(open).Append(effectPercent > 0 ? "+" : string.Empty).Append(effectPercent).Append('%').Append(close)
+                    .Append(" (").Append(activeEffects).Append(activeEffects == 1 ? " active, " : " stacked, ").Append(Mathf.CeilToInt(effectLeft)).Append("s left)");
+            }
             else text.Append("none");
 
             float total = IncomeMultiplier;

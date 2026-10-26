@@ -20,3 +20,5 @@
 "reputation_penalty_max_percent","99"
 "offline_income_percent","20"
 "offline_max_hours","10"
+"reputation_max","100"
+"reputation_min","-100"

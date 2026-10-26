@@ -68,6 +68,16 @@ namespace COMP2165.Clicker
             return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value > 0f ? value : 0f;
         }
 
+        // Reads a signed number such as "+3", "-5" or "-40%" (a trailing % is ignored). Blank or unreadable cells give the fallback.
+        public static float Signed(Dictionary<string, string> row, string key, float fallback = 0)
+        {
+            string text = Get(row, key);
+            if (text.Length == 0) return fallback;
+            if (text.EndsWith("%")) text = text.Substring(0, text.Length - 1).Trim();
+            float value;
+            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ? value : fallback;
+        }
+
         // Reads a share and returns it as 0..1. Accepts a fraction (0.5), a percent number (50) or Excel's percent text ("50%").
         // Plain numbers above 1 count as percents; exactly 1 means 100%. Blank or unreadable cells give the fallback.
         public static float Fraction(Dictionary<string, string> row, string key, float fallback = 0)
@@ -107,6 +117,19 @@ namespace COMP2165.Clicker
         public float inputAmount, outputAmount;
     }
     [Serializable] public class UpgradeData { public string id, name, description, tooltip, targetType, targetId, operation, image, costCurrency, unlockCurrency; public float cost, amount, unlockAt; }
+    // What one answer to a three-option event does. A blank sheet cell means "nothing".
+    [Serializable]
+    public class EventOutcome
+    {
+        // > 0: a cash bonus of this percent of the most the buildings could make over bonus_duration_seconds.
+        // < 0: lose this percent of the event's currency. cashIsDefault: a blank cell on a Win, meaning Settings event_multiplier.
+        public float cashPercent;
+        public bool cashIsDefault;
+        public float reputation;                    // signed points
+        public string building;                     // building id, or "random" (one the player owns); empty = none
+        public int buildingChange;                  // + gives buildings, - takes them away
+        public float incomePercent, incomeSeconds;  // + bonus / - penalty to all income for a number of seconds
+    }
     [Serializable]
     public class EventData
     {
@@ -120,6 +143,20 @@ namespace COMP2165.Clicker
         // current reputation when the sheet cell ends in %. 0 = none.
         public float reputationLoss;
         public bool reputationLossIsPercent;
+        // Reputation points granted for a correct answer in a classic two-option event (Events sheet "Reputation gain").
+        public float reputationGain;
+
+        // Three-option ("choice") events: a filled "Event Option 3" turns the event into three answers.
+        //   option 1 - a gamble: succeeds with `chance` (0..1), then the Win outcome, otherwise the Lose outcome
+        //   option 2 - a sacrifice: pays between sacrificeMin and sacrificeMax of a building or currency, then the Sacrifice outcome
+        //   option 3 - the wrong answer: only the Wrong outcome (running out of time counts as choosing it)
+        public string option3;
+        public float chance;
+        public string sacrificeId;
+        public bool sacrificeIsBuilding;
+        public float sacrificeMin, sacrificeMax;
+        public EventOutcome win, lose, sacrifice, wrong;
+        public bool IsChoice { get { return !string.IsNullOrEmpty(option3); } }
     }
     [Serializable] public class BuildingSave { public string id; public int count; }
     [Serializable] public class CurrencySave { public string id; public float amount, lifetime; }

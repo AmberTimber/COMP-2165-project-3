@@ -34,5 +34,8 @@ namespace COMP2165.Clicker
         public GameObject offlinePanel;
         public Text offlineTimeText, offlineMoneyText, offlinePesticideText;
         public Button offlineCloseButton;
+        // Third answer button for three-option (choice) events. Leave empty and those events only offer their first two answers.
+        public Button optionThree;
+        public Text optionThreeText;
     }
 }
