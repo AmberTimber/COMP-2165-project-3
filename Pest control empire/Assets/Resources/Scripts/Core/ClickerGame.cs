@@ -480,6 +480,66 @@ namespace COMP2165.Clicker
             return currencyAssets.TryGetValue(ReputationId, out reputation) && reputation == asset ? value : Mathf.Max(0f, value);
         }
 
+        // ---- Hooks for the Tutorial script -----------------------------------------------------------------------
+        [Tooltip("While true (the tutorial switches it on) no events or ladybugs appear, and their timers restart when it ends.")]
+        public bool holdBonuses;
+
+        public bool IsReady { get { return ready; } }
+
+        // True once the player owns a building or an upgrade, so a returning player isn't shown the first-start tutorial.
+        public bool HasProgress
+        {
+            get
+            {
+                if (!ready) return false;
+                foreach (var row in buildings) if (BuildingCount(row) > 0) return true;
+                foreach (var row in upgrades) if (manager.State.EarnedUpgrades.Contains(upgradeAssets[row.id])) return true;
+                return false;
+            }
+        }
+
+        // The building with this id (matching ignores case); a blank id means the first building in the sheet.
+        BuildingData BuildingDataFor(string id)
+        {
+            if (buildings.Count == 0) return null;
+            if (string.IsNullOrEmpty(id)) return buildings[0];
+            foreach (var row in buildings) if (string.Equals(row.id, id, StringComparison.OrdinalIgnoreCase)) return row;
+            return null;
+        }
+
+        // The shop row of that building while it is on screen, otherwise null.
+        public RectTransform BuildingRowRect(string id)
+        {
+            var row = BuildingDataFor(id);
+            ClickerShopRow shopRow;
+            return row != null && buildingRows.TryGetValue(row.id, out shopRow) && shopRow.gameObject.activeInHierarchy ? shopRow.transform as RectTransform : null;
+        }
+
+        // Can the player buy one of that building right now (unlocked, and enough money)?
+        public bool CanBuyBuilding(string id)
+        {
+            var row = BuildingDataFor(id);
+            if (!ready || row == null) return false;
+            bool unlocked = Historical(currencyAssets[row.unlockCurrency]) >= row.unlockAt;
+            return unlocked && Balance(buildingAssets[row.id].Cost.Currency) >= BuildingPrice(row, BuildingCount(row));
+        }
+
+        // A plain-text description built from the sheet: what one building earns, and what it consumes if anything.
+        public string DescribeBuilding(string id)
+        {
+            var row = BuildingDataFor(id);
+            if (!ready || row == null) return string.Empty;
+            var text = new StringBuilder(row.name).Append(" earns ").Append(EarnText(buildingAssets[row.id])).Append('.');
+            Currency input;
+            if (row.consumeable > 0 && consumeAssets.TryGetValue(row.id, out input))
+            {
+                int floorPercent = Mathf.RoundToInt(row.productionWithoutConsumption * 100f);
+                text.Append(" It also consumes ").Append(Format(row.consumeable)).Append(' ').Append(input.name).Append("/s each")
+                    .Append(floorPercent > 0 ? ", and makes only " + floorPercent + "% as much money when it runs short." : ", and stops working when it runs short.");
+            }
+            return text.ToString();
+        }
+
         // Reputation never goes above reputation_max or below reputation_min (Settings.csv).
         void ClampReputation()
         {
@@ -558,6 +618,11 @@ namespace COMP2165.Clicker
             {
                 nextTick = Time.time + 1;
                 RunProductionTick();
+            }
+            if (holdBonuses)
+            {
+                nextEvent = Time.time + eventInterval;
+                if (!goldVisible) nextGold = Time.time + goldInterval;
             }
             if (Time.time >= nextEvent && events.Count > 0)
             { var next = events[UnityEngine.Random.Range(0, events.Count)]; eventQueue.Add(QueueEvent(next)); nextEvent = Time.time + eventInterval; PlaySound(string.IsNullOrEmpty(next.sound) ? "event" : next.sound); }
