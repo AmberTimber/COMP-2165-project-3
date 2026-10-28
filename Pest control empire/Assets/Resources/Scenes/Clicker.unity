@@ -343,16 +343,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 49537806}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1791918106}
+  m_Father: {fileID: 974155043}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 1}
-  m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: -38}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &49537808
@@ -1096,8 +1096,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 128955425}
   m_HandleRect: {fileID: 128955424}
   m_Direction: 2
-  m_Value: -0.0000039863307
-  m_Size: 0.5406544
+  m_Value: -0.0000046507216
+  m_Size: 0.54065096
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -3692,8 +3692,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1967530175}
   m_HandleRect: {fileID: 1967530174}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 0.6666666
+  m_Value: 1.0000082
+  m_Size: 0.6666468
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4012,7 +4012,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.000105637366, y: 137.8005}
+  m_AnchoredPosition: {x: -0.000105637366, y: 137.80058}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &683249017
@@ -5187,13 +5187,14 @@ RectTransform:
   m_LocalScale: {x: 1.1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 49537807}
   - {fileID: 1791918106}
   m_Father: {fileID: 1602507534}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -17, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &974155044
 MonoBehaviour:
@@ -5410,7 +5411,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1123168353
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5656,8 +5657,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: -96}
-  m_SizeDelta: {x: 156, y: 50}
+  m_AnchoredPosition: {x: 0, y: -85.2}
+  m_SizeDelta: {x: 156, y: 75}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1182036151
 MonoBehaviour:
@@ -5679,9 +5680,135 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Music:ffffffffffffffffffffffffffffffffff
-
-'
+  m_text: "Game resources used:\r\nBuilding icons:\r\nhired hand icon =  Jerma985.
+    (2013, November 8). GTA4 multiplayer: Commence the meeting of \u201Cthe byeahs\u201D
+    [Video]. YouTube. https://www.youtube.com/watch?v=NgGOLvbknow \r\nfarmer icon
+    = \"Easy Pete\" NPC from Fallout: New Vegas, owned by Bethesda Softworks and
+    Obsidian Entertainment, from https://fallout.fandom.com/wiki/Easy_Pete . Subject
+    of the images in question is believed to qualify as fair use under United States
+    copyright law, as such display does not significantly impede the right of the
+    copyright holder to sell the copyrighted material and is not being used to generate
+    profit in this context.\r\nweeder icon = PopCap Games. (2009). Plants vs. Zombies
+    [Video game]. PopCap Games. https://plantsvszombies.fandom.com/wiki/Sprout \r\npest
+    controller icon = Pest Control Jobs in Sydney. (2018, November 20). Airtasker.
+    https://www.airtasker.com/au/jobs/pest-control/sydney/ \r\nchef icon = Login
+    \u2022 instagram. (n.d.). Www.Instagram.Com. Retrieved October 27, 2026, from
+    https://www.instagram.com/gordongram/ \r\nfumigator icon = S.T.A.L.K.E.R. 2:
+    Heart of chornobyl. (2024, November 20). IMDb. https://www.imdb.com/title/tt14651308/
+    \r\nfactory icon = u/[account deleted]. (n.d.). When the factory must grow [Online
+    forum post]. Reddit. Retrieved October 27, 2026, from https://www.reddit.com/r/Factoriohno/comments/xutpkt/when_the_factory_must_grow
+    \r\nhunter icon = Morrell, D., Kozoll, M., Sackheim, W., & Stallone, S. (1982,
+    October 22). First blood. IMDb. https://www.imdb.com/title/tt0083944/ \r\nFlamer
+    icon = Mobirate. (n.d.). Dead Ahead: Zombie Warfare [Mobile game]. Google Play.
+    https://deadahead.wiki.gg/wiki/Flamethrower# \r\nMercenary icon = Contributors
+    to Villains Wiki. (n.d.). Hunk. Villains Wiki; Fandom, Inc. Retrieved October
+    27, 2026, from https://villains.fandom.com/wiki/HUNK \r\ntank icon = Tank icon
+    - 7165153. (2022, March 24). Flaticon. https://www.flaticon.com/free-icon/tank_7165153
+    \r\nscientist icon =  MacInnes, P. (2018, January 20). Breaking bad: 10 Years
+    on, TV is still in Walter White\u2019s shadow. The Guardian; The Guardian. https://www.theguardian.com/tv-and-radio/2018/jan/20/breaking-bad-10-years-on-tv-is-still-in-walter-whites-shadow
+    \r\nradiator icon = Wikipedia Contributors (ISO 361). (2019, November 7). Hazard
+    symbol. Wikipedia; Wikimedia Foundation. https://en.wikipedia.org/wiki/Hazard_symbol
+    \r\nConcentration camp icon: Auschwitz concentration camp. (2019, January 7).
+    Wikipedia; Wikimedia Foundation. https://en.wikipedia.org/wiki/Auschwitz_concentration_camp
+    \r\nPests lawyer = World Health Organization. (2024). Logo. Www.Who.Int. https://www.who.int/about/policies/publishing/logo
+    \r\n\r\nUpgrade images\r\ngood service = Raso, A. (2025, April 10). Google reviews.
+    Digital Marketing Agency Australia | 60+ Awards Won. https://www.onlinemarketinggurus.com.au/blog/seo/5-star-google-reviews-guide/
+    \r\nInsect claymore = How to properly use glue traps for insects (and risks)
+    \xB7 ExtermPRO. (n.d.). ExtermPRO. Retrieved October 27, 2026, from https://www.extermpro.com/how-to-properly-use-glue-traps-for-insects-and-risks/
+    \r\nFast catching = Lasseter, J. (Director). (2006). Cars [Film]. Pixar Animation
+    Studios; Walt Disney Pictures. https://knowyourmeme.com/memes/i-am-speed \r\nbetter
+    weeding gear =  Mojang Studios. (2011). Minecraft [Video game]. Mojang Studios.
+    https://minecraft.wiki/w/Diamond_Armor#/media/File:Diamond_Chestplate_(item)_JE1_BE1.png/4
+    \r\nsmart catching = Hanna, W., & Barbera, J. (Directors). (1941). The night
+    before Christmas [Animated short film]. Metro-Goldwyn-Mayer. https://tralfaz.blogspot.com/2016/12/tom-and-jerrys-night-before-christmas.html
+    \r\nrobo weeder = Bird, B. (Director). (2004). The Incredibles [Film]. Pixar
+    Animation Studios; Walt Disney Pictures. https://pixar.fandom.com/wiki/Omnidroids
+    \r\nmodernized farmer = Engineers Australia. (Friday, 04 November 2016). The
+    future of agriculture is in robotic farmers. Engineers Australia.  https://portal.engineersaustralia.org.au/news/future-agriculture-robotic-farmers
+    \r\nHell's Kitchen =  Hell\u2019s Kitchen (American TV series) season 23. (2026).
+    In Wikipedia. https://en.wikipedia.org/w/index.php?title=Hell%27s_Kitchen_%28American_TV_series%29_season_23&oldid=1378023710
+    \r\nmanual removal = copyright, C. U. K. I., and liberationist groups since the
+    nineteenth century The motif itself is not under. (2007, February 1). SVG version
+    of fist.Png. Wikimedia Commons. https://commons.wikimedia.org/wiki/File:Fist.svg 
+    \r\nbasic training = Treyarch. (2008). Call of Duty: World at War [Video game].
+    Activision.  https://callofduty.fandom.com/wiki/Speed_Cola \r\nSecret formula
+    = Krabby Patty Secret Formula. (n.d.). Encyclopedia SpongeBobia. Retrieved October
+    27, 2026, from https://spongebob.fandom.com/wiki/Krabby_Patty_secret_formula
+    \r\nultimate controller = Variety Australia Staff. (2025, August 14). \u2018Helldivers
+    2\u2019 teases \u2018halo\u2019 crossover ahead of xbox launch. Variety Australia.
+    https://au.variety.com/2025/digital/news/helldivers-2-halo-crossover-xbox-launch-26477/
+    \r\nOvercooked = Overcooked. (2024). PlayStation. https://www.playstation.com/en-au/games/overcooked-/
+    \r\nbetter aim =  Landfall. (2021). Totally Accurate Battle Simulator [Video
+    game]. Landfall. https://totally-accurate-battle-simulator.fandom.com/wiki/Deadeye?file=Deadeye_HD_Icon.png
+    \r\nkiller fumes =  Global Spill & Safety. (n.d.). Dangerous goods sign \u2013
+    Class 2 toxic gas. https://globalspill.com.au/product/dangerous-goods-sign-class-2-toxic-gas/
+    \r\nprevision removal =  Yaniss2853, Levy Rozman/GothamChess. (2026, June 19).
+    Accuracy 100 accuracy meme - accuracy 100 accuracy 100 - discover & share GIFs.
+    Tenor. https://tenor.com/view/accuracy-100-accuracy-100-gif-1177533134565489950
+    \r\nnapalm mixture = Global Spill & Safety. (n.d.). DG diamond sign \u2013 Class
+    3 flammable liquids. https://globalspill.com.au/product/dg-diamond-sign-class-3-flammable-liquids/
+    \r\napex predator = Ghillie suit. (2022, February 27). Wikipedia. https://en.wikipedia.org/wiki/Ghillie_suit
+    \r\nviper grenade = OVERKILL Software. (2013). PAYDAY 2 [Video game]. 505 Games.
+    https://payday.fandom.com/wiki/Viper_Grenade# \r\nfaster loading =  White rabbit
+    by LuzTapia on DeviantArt. (2025, September 26). Deviantart.Com; DeviantArt.
+    https://www.deviantart.com/luztapia/art/White-rabbit-290627595 \r\nAI logistics
+    = Stanton, A. (Director). (2008). WALL-E [Film]. Pixar Animation Studios; Walt
+    Disney Pictures. https://pixar.fandom.com/wiki/AUTO \r\nsquad formation upgrade
+    icon = Wizet. (2003). MapleStory [Video game]. Nexon. https://orangemushroom.net/2016/12/15/kmst-ver-1-2-043-new-5th-job-skills/resistance-line-infantry-attack-effect/
+    \r\nAcademic research = Find research projects. (n.d.). Macquarie University.
+    Retrieved October 28, 2026, from https://researchers.mq.edu.au/en/projects/ \r\nbig
+    boss =  Skytech Aviation. (2026, February 16). A smiling man in a suit stands
+    in an office. Unsplash; Unsplash. https://unsplash.com/photos/a-smiling-man-in-a-suit-stands-in-an-office-P3i8MtIT1ug
+    \r\nworker motivation = Running away balloon. (n.d.). Know Your Meme. Retrieved
+    October 28, 2026, from https://knowyourmeme.com/memes/running-away-balloon \r\nMarket
+    images:\r\nPesticide for cash exchange icon = Green, M. (2015, January 23). Money
+    in politics means dangerous chemicals in our homes. BillMoyers.Com. https://billmoyers.com/2015/01/23/money-harmful-chemicals-politics/
+    \r\nPesticide for uranium exchange = Treyarch. (2008). Call of Duty: World at
+    War [Video game]. Activision.  https://callofduty.fandom.com/wiki/Element_115\r\n\r\nEvents
+    images:\r\nWorker injury icon = MacFarlane, S. (Creator). (1999\u2013present).
+    Family Guy [TV series]. Fox Broadcasting Company. https://familyguy.fandom.com/wiki/Peter_hurts_his_knee
+    \r\nBroken equipment icon = PolonexStudios. (n.d.). Low durability switcher.
+    CurseForge. Retrieved October 28, 2026, from https://www.curseforge.com/minecraft/mc-mods/low-durability-switcher
+    \r\n Mistaken removal icon = Fujisawa, T. (Creator). (1999\u20132000). Great
+    Teacher Onizuka [Anime television series]. Studio Pierrot. https://knowyourmeme.com/memes/worried-hiroshi-uchiyamada-gto-gif
+    \r\nQuality control issue icon = Twitter, Inc. (n.d.). Twitter. https://twitterx.fandom.com/wiki/X_verification_line
+    \r\nFire event icon =  Archive, V. A., feed, G. R., Archive, V. A., Author, E.,
+    & feed, G. R. (2021, April 28). \u2018Disaster girl\u2019 selling original photo
+    behind viral meme for $473K. New York Post. https://nypost.com/2021/04/28/disaster-girl-selling-original-photo-behind-viral-meme/
+    \r\nHiring event = Valve Corporation. (2020). Half-Life: Alyx [Video game]. Valve
+    Corporation. https://half-life.fandom.com/wiki/The_G-Man \r\nProtest event icon
+    = Wikipedia Contributors. (2019, February 17). I have a dream. Wikipedia; Wikimedia
+    Foundation. https://en.wikipedia.org/wiki/I_Have_a_Dream \r\nCompetitor event
+    icon = Warby, W. (2023, December 22). A close-up of a Monopoly board game. Unsplash;
+    Unsplash. https://unsplash.com/photos/a-close-up-of-a-monopoly-board-game-EfGa85RIkTE
+    \r\n\r\nPests images:\r\nBlast crawler icon = miHoYo. (2024). Zenless Zone Zero
+    [Video game]. HoYoverse. https://zenless-zone-zero.fandom.com/wiki/Blastcrawler
+    \r\nstick bug icon = Stack Man. (2020, July 24). Get stick bugged lol [Video].
+    YouTube. https://www.youtube.com/watch?v=fC7oUOUEEi4 \r\nrat icon = swizzdizzy.
+    (2022, March 13). Horizontally spinning rat [Video]. YouTube. https://www.youtube.com/watch?v=3X-iqFRGqbc
+    \r\nSilverfish icon = \"Silverfish\" mob by Mojang from the game Minecraft, from
+    \"https://minecraft.wiki/index.php?curid=14004 \". Licensed under a Creative
+    Commons Attribution-NonCommercial 3.0 license.\r\nRoach icon = Conmongt. (2018,
+    January 19). Cartoon cockroach character illustration. Pixabay.Com. https://pixabay.com/illustrations/insect-isolated-pest-antenna-3091375/
+    \r\nAntlion = Valve Corporation. (2004). Half-Life 2 [Video game]. Valve Corporation.
+    https://half-life.fandom.com/wiki/Antlion_Soldier \r\n\r\nOther images:\r\nladybug
+    icon = Re-Logic. (2011). Terraria [Video game]. Re-Logic. https://terraria.wiki.gg/wiki/Ladybug
+    \r\nSplat icon = Publicdomainvectors.org. (2018, August 21). Splat in green color.
+    Public Domain Vectors. https://publicdomainvectors.org/en/free-clipart/Splat-in-green-color/76832.html
+    \r\nPause game icon = Red X on network icon | Red Cross on network icon. (n.d.).
+    Driver Support. Retrieved October 28, 2026, from https://www.driversupport.com/knowledge-article/red-x-on-network-icon/
+    \r\n\r\nSounds used:\r\nSplat sound effect = Myinstants. (2025). Ralsei splat
+    - sound button. Myinstants. https://www.myinstants.com/en/instant/ralsei-splat-44947/
+    \r\nLadybug clicked SFX = Re-Logic. (2011). Terraria [Video game]. Re-Logic.
+    https://www.youtube.com/watch?v=JJClRjDYFL0 \r\nBuy SFX = Re-Logic. (2011). Terraria
+    [Video game]. Re-Logic. https://www.myinstants.com/en/instant/terraria-coins-71682/
+    \r\nBackground music = \"JungleBook\" from the game \"Maplestory\" by Nexon and
+    Wizet, Composed by: \uC774\uC900\uD76C & LedZeper, from https://youtu.be/sAor5Hqd640\r\nCorrect
+    event answer SFX = Myinstants. (n.d.). Correct (ding) - sound button. Myinstants.
+    Retrieved October 28, 2026, from https://www.myinstants.com/en/instant/correct-ding/
+    \r\nIncorrect event answer SFX = Myinstants. (n.d.). Dota sad trombone - sound
+    button. Myinstants. Retrieved October 28, 2026, from https://www.myinstants.com/en/instant/dota-sad-trombone-70107/
+    \r\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5708,15 +5835,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 1.1
   m_fontSizeBase: 25
   m_fontWeight: 400
   m_enableAutoSizing: 1
-  m_fontSizeMin: 18
+  m_fontSizeMin: 1
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 2
-  m_VerticalAlignment: 512
+  m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -5747,7 +5874,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: 0, w: -27.93082}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -7936,13 +8063,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 49537807}
   - {fileID: 1182036150}
   m_Father: {fileID: 974155043}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 91.5, y: -0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &1793880060
@@ -8407,8 +8533,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 2057457408}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.33333337}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
